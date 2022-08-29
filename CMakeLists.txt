@@ -1,5 +1,18 @@
 ﻿cmake_minimum_required (VERSION 3.13)
 
+#---------------------------Compilation database generation--------------------
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+file(TOUCH ${CMAKE_BINARY_DIR}/compile_commands.json)
+file(REMOVE ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json)
+
+configure_file(
+  ${CMAKE_BINARY_DIR}/compile_commands.json
+  ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json
+  COPYONLY
+)
+#---------------------------Compilation database generation--------------------
+
 # Workaround for the lab computers
 if (WIN32)
 	set (LUGGCGL_TMP_DIR ${CMAKE_SOURCE_DIR}/../Temp)
