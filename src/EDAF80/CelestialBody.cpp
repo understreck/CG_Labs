@@ -34,10 +34,19 @@ CelestialBody::render(
     // auto const elapsed_time_ms = std::chrono::duration<float,
     // std::milli>(elapsed_time).count();
 
-    _body.spin.rotation_angle += _body.spin.speed * elapsed_time_s;
 
     glm::mat4 world = parent_transform;
-    // world           = glm::scale(world, _body.scale);
+
+    //Move around orbit
+    _body.orbit.rotation_angle += _body.orbit.speed * elapsed_time_s;
+
+    world = glm::rotate(world, _body.orbit.inclination, {0.0f, 0.0f, 1.0f});
+    world = glm::rotate(world, _body.orbit.rotation_angle, {0.0f, 1.0f, 0.0f});
+    world = glm::translate(world, {_body.orbit.radius, 0.0f, 0.0f});
+
+    //Rotate along axis
+    _body.spin.rotation_angle += _body.spin.speed * elapsed_time_s;
+
     world = glm::rotate(world, _body.spin.axial_tilt, {0.0f, 0.0f, 1.0f});
     world = glm::rotate(world, _body.spin.rotation_angle, {0.0f, 1.0f, 0.0f});
 
