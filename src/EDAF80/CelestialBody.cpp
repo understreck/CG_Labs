@@ -64,7 +64,17 @@ CelestialBody::render(
     // manage all the local transforms ourselves, so the internal transform
     // of the node is just the identity matrix and we can forward the whole
     // world matrix.
+
     _body.node.render(view_projection, world);
+
+    if(_ring.is_set) {
+        auto ring_transform = glm::rotate(
+                child_transform,
+                glm::half_pi<float>(),
+                {1.0f, 0.0f, 0.0f});
+        ring_transform = glm::scale(ring_transform, {_ring.scale, 0.0f});
+        _ring.node.render(view_projection, ring_transform);
+    }
 
     return child_transform;
 }
