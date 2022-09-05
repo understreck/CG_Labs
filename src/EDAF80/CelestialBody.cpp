@@ -34,12 +34,12 @@ CelestialBody::render(
     // auto const elapsed_time_ms = std::chrono::duration<float,
     // std::milli>(elapsed_time).count();
 
-    _body.spin.rotation_angle = -glm::half_pi<float>() / 2.0f;
+    _body.spin.rotation_angle += _body.spin.speed * elapsed_time_s;
 
     glm::mat4 world = parent_transform;
-
-    // Scale according to scale param
-    world = glm::scale(world, _body.scale);
+    // world           = glm::scale(world, _body.scale);
+    world = glm::rotate(world, _body.spin.axial_tilt, {0.0f, 0.0f, 1.0f});
+    world = glm::rotate(world, _body.spin.rotation_angle, {0.0f, 1.0f, 0.0f});
 
     if(show_basis) {
         bonobo::renderBasis(1.0f, 2.0f, view_projection, world);
