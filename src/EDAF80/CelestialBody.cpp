@@ -34,21 +34,25 @@ CelestialBody::render(
     // auto const elapsed_time_ms = std::chrono::duration<float,
     // std::milli>(elapsed_time).count();
 
-
     glm::mat4 world = parent_transform;
 
-    //Move around orbit
+    // Move around orbit
     _body.orbit.rotation_angle += _body.orbit.speed * elapsed_time_s;
 
     world = glm::rotate(world, _body.orbit.inclination, {0.0f, 0.0f, 1.0f});
     world = glm::rotate(world, _body.orbit.rotation_angle, {0.0f, 1.0f, 0.0f});
     world = glm::translate(world, {_body.orbit.radius, 0.0f, 0.0f});
 
-    //Rotate along axis
-    _body.spin.rotation_angle += _body.spin.speed * elapsed_time_s;
-
+    // Tilt axis, copy child transform
     world = glm::rotate(world, _body.spin.axial_tilt, {0.0f, 0.0f, 1.0f});
+    auto const child_transform = world;
+
+    // Rotate around axis
+    _body.spin.rotation_angle += _body.spin.speed * elapsed_time_s;
     world = glm::rotate(world, _body.spin.rotation_angle, {0.0f, 1.0f, 0.0f});
+
+    // Scale
+    world = glm::scale(world, _body.scale);
 
     if(show_basis) {
         bonobo::renderBasis(1.0f, 2.0f, view_projection, world);
@@ -62,7 +66,7 @@ CelestialBody::render(
     // world matrix.
     _body.node.render(view_projection, world);
 
-    return parent_transform;
+    return child_transform;
 }
 
 void
