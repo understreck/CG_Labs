@@ -38,6 +38,9 @@ CelestialBody::render(
 
     glm::mat4 world = parent_transform;
 
+    // Scale according to scale param
+    world = glm::scale(world, _body.scale);
+
     if(show_basis) {
         bonobo::renderBasis(1.0f, 2.0f, view_projection, world);
     }
