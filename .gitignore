@@ -24,3 +24,5 @@ log.txt
 *.vcxproj.user
 
 compile_commands.json
+.clang-format
+.clang-tidy
