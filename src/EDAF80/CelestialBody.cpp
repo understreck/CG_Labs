@@ -43,7 +43,8 @@ CelestialBody::render(
     world = glm::rotate(world, _body.orbit.rotation_angle, {0.0f, 1.0f, 0.0f});
     world = glm::translate(world, {_body.orbit.radius, 0.0f, 0.0f});
 
-    // Tilt axis, copy child transform
+    // Counter rotate orbit, tilt axis,  copy child transform
+    world = glm::rotate(world, -_body.orbit.rotation_angle, {0.0f, 1.0f, 0.0f});
     world = glm::rotate(world, _body.spin.axial_tilt, {0.0f, 0.0f, 1.0f});
     auto const child_transform = world;
 
