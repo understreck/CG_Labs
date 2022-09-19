@@ -141,6 +141,35 @@ print(glm::vec3 v)
     std::cerr << v.x << " : " << v.y << " : " << v.z << "\n";
 }
 
+auto
+generate_edges(float radius, float theta, float phi)
+{
+    auto const sinTheta = std::sin(theta);
+    auto const cosTheta = std::cos(theta);
+
+    auto const sinPhi = std::sin(phi);
+    auto const cosPhi = std::cos(phi);
+
+    struct Edges {
+        glm::vec3 position;
+        glm::vec3 tangent;
+        glm::vec3 binormal;
+    };
+    return Edges{
+            .position =
+                    {radius * sinTheta * sinPhi,
+                     -radius * cosPhi,
+                     radius * cosTheta * sinPhi},
+            .tangent =
+                    {radius * cosTheta * sinPhi,
+                     0,
+                     -radius * sinTheta * sinPhi},
+            .binormal = {
+                    radius * sinTheta * cosPhi,
+                    radius * sinPhi,
+                    radius * cosTheta * cosPhi}};
+}
+
 bonobo::mesh_data
 parametric_shapes::createSphere(
         float const radius,
@@ -153,26 +182,51 @@ parametric_shapes::createSphere(
     auto const middleEdgeCount    = longitudeEdgeCount * latitude_split_count;
     auto const edgeCount          = middleEdgeCount + edgesPerPole * 2;
 
-    auto vertices = std::vector<glm::vec3>{edgeCount};
+    auto vertices  = std::vector<glm::vec3>{edgeCount};
+    auto tangents  = std::vector<glm::vec3>{edgeCount};
+    auto binormals = std::vector<glm::vec3>{edgeCount};
+    auto normals   = std::vector<glm::vec3>{edgeCount};
+    auto texCoords = std::vector<glm::vec3>{edgeCount};
 
     // Generate pole vertices
     for(auto round = 0; round <= 1; ++round) {
         auto const edgeOffset = round == 0 ? 0 : edgesPerPole;
 
-        auto const phi    = round == 0 ? 0.f : glm::pi<float>();
+        auto const phi = round == 0 ? 0.f : glm::pi<float>();
+
+        auto const xTextStep  = 1.f / edgesPerPole;
+        auto const xTexOffset = xTextStep / 2.f;
+
         auto const sinPhi = std::sin(phi);
         auto const cosPhi = std::cos(phi);
 
         for(auto edge = 0; edge < edgesPerPole; ++edge) {
             auto const thetaStep   = glm::two_pi<float>() / edgesPerPole;
             auto const thetaOffset = thetaStep / 2.f;
-            auto const sinTheta    = std::sin(thetaOffset + thetaStep * edge);
-            auto const cosTheta    = std::cos(thetaOffset + thetaStep * edge);
+            auto const theta       = thetaOffset + thetaStep * edge;
+            auto const sinTheta    = std::sin(theta);
+            auto const cosTheta    = std::cos(theta);
 
             vertices[edgeOffset + edge] = {
                     radius * sinTheta * sinPhi,
                     -radius * cosPhi,
                     radius * cosTheta * sinPhi};
+            tangents[edgeOffset + edge] = {
+                    radius * cosTheta,
+                    0,
+                    -radius * sinTheta};
+            // {0,0,0}
+            binormals[edgeOffset + edge] =
+                    glm::vec3{radius * sinTheta, 0, radius * cosTheta}
+                    * (1.f - 2.0f * round);
+            normals[edgeOffset + edge] = glm::cross(
+                    tangents[edgeOffset + edge],
+                    binormals[edgeOffset + edge]);
+
+            texCoords[edgeOffset + edge] = {
+                    xTexOffset + xTextStep * edge,
+                    static_cast<float>(round),
+                    0.f};
             // print(vertices[edgeOffset + edge]);
         }
     }
@@ -181,21 +235,29 @@ parametric_shapes::createSphere(
     for(auto lat = 0; lat < latitude_split_count; ++lat) {
         auto const phiStep   = glm::pi<float>() / (latitude_split_count + 1.f);
         auto const phiOffset = phiStep;
-        auto const sinPhi    = std::sin(phiOffset + phiStep * lat);
-        auto const cosPhi    = std::cos(phiOffset + phiStep * lat);
+        auto const phi       = phiOffset + phiStep * lat;
+
+        auto const xTextStep  = 1.f / longitudeEdgeCount;
+        auto const xTexOffset = xTextStep / 2.f;
+        auto const yTexStep   = 1.f / latitude_split_count;
 
         auto const edgeOffset = 2 * edgesPerPole + longitudeEdgeCount * lat;
         for(auto lon = 0; lon < longitudeEdgeCount; ++lon) {
             auto const thetaStep = glm::two_pi<float>() / longitude_split_count;
-            auto const sinTheta  = std::sin(thetaStep * lon);
-            auto const cosTheta  = std::cos(thetaStep * lon);
+            auto const theta     = thetaStep * lon;
 
-            auto const edge = edgeOffset + lon;
+            auto&& [position, tangent, binormal] =
+                    generate_edges(radius, theta, phi);
 
-            vertices[edge] = {
-                    radius * sinTheta * sinPhi,
-                    -radius * cosPhi,
-                    radius * cosTheta * sinPhi};
+            vertices[edgeOffset + lon]  = position;
+            tangents[edgeOffset + lon]  = tangent;
+            binormals[edgeOffset + lon] = binormal;
+            normals[edgeOffset + lon]   = glm::cross(tangent, binormal);
+
+            texCoords[edgeOffset + lon] = {
+                    xTexOffset + xTextStep * lon,
+                    yTexStep * lat,
+                    0.f};
             // std::cerr << "Edge: " << edge << " : ";
             // print(vertices[edge]);
         }
@@ -270,24 +332,24 @@ parametric_shapes::createSphere(
     glBindVertexArray(meshData.vao);
 
     auto const subBufferSize = sizeof(glm::vec3) * edgeCount;
-    auto const bufferSize    = subBufferSize;
+    auto const bufferSize    = subBufferSize * 5;
 
-    auto const verticesOffset = 0u;
-    // auto const biNormalsOffset = verticesOffset + edgeCount;
-    // auto const tangentsOffset  = biNormalsOffset + edgeCount;
-    // auto const normalsOffset   = tangentsOffset + edgeCount;
-    // auto const texCoordsOffset = normalsOffset + edgeCount;
+    auto const verticesOffset  = 0u;
+    auto const tangentsOffset  = verticesOffset + subBufferSize;
+    auto const binormalsOffset = tangentsOffset + subBufferSize;
+    auto const normalsOffset   = binormalsOffset + subBufferSize;
+    auto const texCoordsOffset = normalsOffset + subBufferSize;
 
     glGenBuffers(1, &meshData.bo);
     assert(meshData.bo != 0);
     glBindBuffer(GL_ARRAY_BUFFER, meshData.bo);
-    glBufferData(GL_ARRAY_BUFFER, bufferSize, vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, bufferSize, nullptr, GL_STATIC_DRAW);
 
-    // glBufferSubData(
-    // GL_ARRAY_BUFFER,
-    // verticesOffset,
-    // subBufferSize,
-    // vertices.data());
+    glBufferSubData(
+            GL_ARRAY_BUFFER,
+            verticesOffset,
+            subBufferSize,
+            vertices.data());
     glEnableVertexAttribArray(
             static_cast<GLuint>(bonobo::shader_bindings::vertices));
     glVertexAttribPointer(
@@ -298,65 +360,65 @@ parametric_shapes::createSphere(
             0,
             reinterpret_cast<GLvoid const*>(verticesOffset));
 
-    // glBufferSubData(
-    // GL_ARRAY_BUFFER,
-    // biNormalsOffset,
-    // subBufferSize,
-    // biNormals.data());
-    // glEnableVertexAttribArray(
-    // static_cast<GLuint>(bonobo::shader_bindings::binormals));
-    // glVertexAttribPointer(
-    // static_cast<GLuint>(bonobo::shader_bindings::binormals),
-    // glm::vec3::length(),
-    // GL_FLOAT,
-    // GL_FALSE,
-    // 0,
-    // reinterpret_cast<GLvoid const*>(biNormalsOffset));
+    glBufferSubData(
+            GL_ARRAY_BUFFER,
+            binormalsOffset,
+            subBufferSize,
+            binormals.data());
+    glEnableVertexAttribArray(
+            static_cast<GLuint>(bonobo::shader_bindings::binormals));
+    glVertexAttribPointer(
+            static_cast<GLuint>(bonobo::shader_bindings::binormals),
+            glm::vec3::length(),
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            reinterpret_cast<GLvoid const*>(binormalsOffset));
 
-    // glBufferSubData(
-    // GL_ARRAY_BUFFER,
-    // tangentsOffset,
-    // subBufferSize,
-    // tangents.data());
-    // glEnableVertexAttribArray(
-    // static_cast<GLuint>(bonobo::shader_bindings::tangents));
-    // glVertexAttribPointer(
-    // static_cast<GLuint>(bonobo::shader_bindings::tangents),
-    // glm::vec3::length(),
-    // GL_FLOAT,
-    // GL_FALSE,
-    // 0,
-    // reinterpret_cast<GLvoid const*>(tangentsOffset));
+    glBufferSubData(
+            GL_ARRAY_BUFFER,
+            tangentsOffset,
+            subBufferSize,
+            tangents.data());
+    glEnableVertexAttribArray(
+            static_cast<GLuint>(bonobo::shader_bindings::tangents));
+    glVertexAttribPointer(
+            static_cast<GLuint>(bonobo::shader_bindings::tangents),
+            glm::vec3::length(),
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            reinterpret_cast<GLvoid const*>(tangentsOffset));
 
-    // glBufferSubData(
-    // GL_ARRAY_BUFFER,
-    // normalsOffset,
-    // subBufferSize,
-    // normals.data());
-    // glEnableVertexAttribArray(
-    // static_cast<GLuint>(bonobo::shader_bindings::normals));
-    // glVertexAttribPointer(
-    // static_cast<GLuint>(bonobo::shader_bindings::normals),
-    // glm::vec3::length(),
-    // GL_FLOAT,
-    // GL_FALSE,
-    // 0,
-    // reinterpret_cast<GLvoid const*>(normalsOffset));
+    glBufferSubData(
+            GL_ARRAY_BUFFER,
+            normalsOffset,
+            subBufferSize,
+            normals.data());
+    glEnableVertexAttribArray(
+            static_cast<GLuint>(bonobo::shader_bindings::normals));
+    glVertexAttribPointer(
+            static_cast<GLuint>(bonobo::shader_bindings::normals),
+            glm::vec3::length(),
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            reinterpret_cast<GLvoid const*>(normalsOffset));
 
-    // glBufferSubData(
-    // GL_ARRAY_BUFFER,
-    // texCoordsOffset,
-    // subBufferSize,
-    // texCoords.data());
-    // glEnableVertexAttribArray(
-    // static_cast<GLuint>(bonobo::shader_bindings::texcoords));
-    // glVertexAttribPointer(
-    // static_cast<GLuint>(bonobo::shader_bindings::texcoords),
-    // glm::vec3::length(),
-    // GL_FLOAT,
-    // GL_FALSE,
-    // 0,
-    // reinterpret_cast<GLvoid const*>(texCoordsOffset));
+    glBufferSubData(
+            GL_ARRAY_BUFFER,
+            texCoordsOffset,
+            subBufferSize,
+            texCoords.data());
+    glEnableVertexAttribArray(
+            static_cast<GLuint>(bonobo::shader_bindings::texcoords));
+    glVertexAttribPointer(
+            static_cast<GLuint>(bonobo::shader_bindings::texcoords),
+            glm::vec3::length(),
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            reinterpret_cast<GLvoid const*>(texCoordsOffset));
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 

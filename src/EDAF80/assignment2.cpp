@@ -161,7 +161,7 @@ edaf80::Assignment2::run()
     glEnable(GL_DEPTH_TEST);
 
     auto const control_point_sphere =
-            parametric_shapes::createSphere(0.1f, 100u, 40u);
+            parametric_shapes::createSphere(0.1f, 100u, 50u);
     std::array<glm::vec3, 9> control_point_locations = {
             glm::vec3(0.0f, 0.0f, 0.0f),
             glm::vec3(1.0f, 1.8f, 1.0f),
@@ -269,6 +269,11 @@ edaf80::Assignment2::run()
                 circle_rings.set_program(
                         selection_result.program,
                         set_uniforms);
+                for(auto&& control_point : control_points) {
+                    control_point.set_program(
+                            selection_result.program,
+                            set_uniforms);
+                }
             }
             ImGui::Separator();
             ImGui::Checkbox("Show control points", &show_control_points);
