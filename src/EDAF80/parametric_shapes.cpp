@@ -135,190 +135,132 @@ parametric_shapes::createQuad(
     return data;
 }
 
+auto
+print(glm::vec3 v)
+{
+    std::cerr << v.x << " : " << v.y << " : " << v.z << "\n";
+}
+
 bonobo::mesh_data
 parametric_shapes::createSphere(
         float const radius,
         unsigned int const longitude_split_count,
         unsigned int const latitude_split_count)
 {
-    // Double along the seam
-    auto const longEdgeCount = longitude_split_count + 1;
+    // auto const triangleCount = longitude_split_count * 2;
+    auto const edgesPerPole       = longitude_split_count;
+    auto const longitudeEdgeCount = longitude_split_count + 1;
+    auto const middleEdgeCount    = longitudeEdgeCount * latitude_split_count;
+    auto const edgeCount          = middleEdgeCount + edgesPerPole * 2;
 
-    auto const quadEdgeCount = longEdgeCount * latitude_split_count;
-    auto const poleEdgeCount = longitude_split_count;
+    auto vertices = std::vector<glm::vec3>{edgeCount};
 
-    auto const edgeCount = quadEdgeCount + poleEdgeCount * 2;
+    // Generate pole vertices
+    for(auto round = 0; round <= 1; ++round) {
+        auto const edgeOffset = round == 0 ? 0 : edgesPerPole;
 
-    auto vertices  = std::vector<glm::vec3>{edgeCount};
-    auto biNormals = std::vector<glm::vec3>{edgeCount};
-    auto tangents  = std::vector<glm::vec3>{edgeCount};
-    auto normals   = std::vector<glm::vec3>{edgeCount};
-    auto texCoords = std::vector<glm::vec3>{edgeCount};
-
-    // Generate north pole vertices
-    for(auto edge = 0; edge < poleEdgeCount; ++edge) {
-        auto constexpr sinPhi = 1;
-        auto constexpr cosPhi = 0;
-
-        auto const thetaStep  = glm::pi<float>() / poleEdgeCount;
-        auto const thetaBegin = thetaStep / 2;
-        auto const theta      = thetaBegin + thetaStep * edge;
-
-        auto const sinTheta = std::sin(theta);
-        auto const cosTheta = std::cos(theta);
-
-        vertices[edge] = {
-                radius * sinTheta * sinPhi,
-                0,
-                radius * cosTheta * sinPhi};
-
-        tangents[edge] = {0, radius * sinPhi, 0};
-
-        biNormals[edge] = {
-                radius * cosTheta * sinTheta,
-                0,
-                -radius * sinTheta * sinPhi};
-
-        normals[edge] = glm::cross(tangents[edge], biNormals[edge]);
-
-        auto const textureStep       = 1.0f / static_cast<float>(poleEdgeCount);
-        auto constexpr textureOffset = 0.5f;
-        texCoords[edge] = {textureOffset + textureStep * edge, 0.f, 0.f};
-    }
-
-    // Generate south pole vertices
-    for(auto edge = edgeCount - poleEdgeCount; edge < edgeCount; ++edge) {
-        auto constexpr sinPhi = -1;
-        auto constexpr cosPhi = 0;
-
-        auto const thetaStep  = glm::pi<float>() / poleEdgeCount;
-        auto const thetaBegin = thetaStep / 2;
-        auto const theta      = thetaBegin + thetaStep * edge;
-
-        auto const sinTheta = std::sin(theta);
-        auto const cosTheta = std::cos(theta);
-
-        vertices[edge] = {
-                radius * sinTheta * sinPhi,
-                -radius * cosPhi,
-                radius * cosTheta * sinPhi};
-
-        biNormals[edge] = {
-                radius * cosTheta * sinTheta,
-                0,
-                -radius * sinTheta * sinPhi};
-
-        tangents[edge] = {
-                radius * sinTheta * cosPhi,
-                radius * sinPhi,
-                radius * cosTheta * cosPhi};
-
-        normals[edge] = glm::cross(tangents[edge], biNormals[edge]);
-
-        auto const textureStep       = 1.0f / static_cast<float>(poleEdgeCount);
-        auto constexpr textureOffset = 0.5f;
-        texCoords[edge] = {textureOffset + textureStep * edge, 1.f, 0.f};
-    }
-
-    // Generate quad vertices
-    for(auto lat = 0; lat < latitude_split_count; ++lat) {
-        auto const phiStep  = glm::pi<float>() / (latitude_split_count + 1);
-        auto const phiBegin = phiStep;
-
-        auto const phi    = phiBegin + phiStep * lat;
+        auto const phi    = round == 0 ? 0.f : glm::pi<float>();
         auto const sinPhi = std::sin(phi);
         auto const cosPhi = std::cos(phi);
 
-        // Include the seam twice
-        for(auto lon = 0; lon < longEdgeCount; ++lon) {
-            auto const longStep  = glm::pi<float>() / longitude_split_count;
-            auto const longBegin = longStep * 0;
+        for(auto edge = 0; edge < edgesPerPole; ++edge) {
+            auto const thetaStep   = glm::two_pi<float>() / edgesPerPole;
+            auto const thetaOffset = thetaStep / 2.f;
+            auto const sinTheta    = std::sin(thetaOffset + thetaStep * edge);
+            auto const cosTheta    = std::cos(thetaOffset + thetaStep * edge);
 
-            auto const theta    = longBegin + longStep * lon;
-            auto const sinTheta = std::sin(theta);
-            auto const cosTheta = std::cos(theta);
+            vertices[edgeOffset + edge] = {
+                    radius * sinTheta * sinPhi,
+                    -radius * cosPhi,
+                    radius * cosTheta * sinPhi};
+            // print(vertices[edgeOffset + edge]);
+        }
+    }
 
-            auto const edge = poleEdgeCount + lat * latitude_split_count + lon;
+    // Generate middle vertices
+    for(auto lat = 0; lat < latitude_split_count; ++lat) {
+        auto const phiStep   = glm::pi<float>() / (latitude_split_count + 1.f);
+        auto const phiOffset = phiStep;
+        auto const sinPhi    = std::sin(phiOffset + phiStep * lat);
+        auto const cosPhi    = std::cos(phiOffset + phiStep * lat);
+
+        auto const edgeOffset = 2 * edgesPerPole + longitudeEdgeCount * lat;
+        for(auto lon = 0; lon < longitudeEdgeCount; ++lon) {
+            auto const thetaStep = glm::two_pi<float>() / longitude_split_count;
+            auto const sinTheta  = std::sin(thetaStep * lon);
+            auto const cosTheta  = std::cos(thetaStep * lon);
+
+            auto const edge = edgeOffset + lon;
 
             vertices[edge] = {
                     radius * sinTheta * sinPhi,
                     -radius * cosPhi,
                     radius * cosTheta * sinPhi};
-
-            biNormals[edge] = {
-                    radius * cosTheta * sinTheta,
-                    0,
-                    -radius * sinTheta * sinPhi};
-
-            tangents[edge] = {
-                    radius * sinTheta * cosPhi,
-                    radius * sinPhi,
-                    radius * cosTheta * cosPhi};
-
-            normals[edge] = glm::cross(tangents[edge], biNormals[edge]);
-
-            auto const xTexStep =
-                    1.0f / static_cast<float>(longitude_split_count);
-            auto const yTexStep =
-                    1.0f / static_cast<float>(latitude_split_count + 1);
-            auto const yTexBegin = yTexStep;
-            texCoords[edge] = {xTexStep * lon, yTexBegin + yTexStep * lat, 0.f};
+            // std::cerr << "Edge: " << edge << " : ";
+            // print(vertices[edge]);
         }
     }
 
-    auto const trianglesPerPole   = poleEdgeCount;
-    auto const quadsTriangleCount = longEdgeCount * latitude_split_count * 2u;
-    // auto const numQuad
-    auto triangles =
-            std::vector<glm::uvec3>{quadsTriangleCount + trianglesPerPole * 2u};
+    auto const trianglesPerPole = edgesPerPole;
+    auto const quadsPerRow      = longitude_split_count;
+    auto const quadRows         = latitude_split_count - 1;
+    auto const middleQuadCount  = quadsPerRow * quadRows;
+    auto const triangleCount    = middleQuadCount * 2 + trianglesPerPole * 2;
 
-    // Generate north pole triangles
-    for(auto tri = 0; tri < trianglesPerPole; ++tri) {
-        auto const topVertice = tri;
+    auto triangles = std::vector<glm::uvec3>{triangleCount};
 
-        auto const bottomVerticeOffset = trianglesPerPole;
-        auto const bottomLeftVertice   = bottomVerticeOffset + tri;
-        auto const bottomRightVertice  = bottomVerticeOffset + tri + 1;
+    std::cerr << triangles.size() << "\n\n\n";
 
-        triangles[tri] = {topVertice, bottomRightVertice, bottomLeftVertice};
+    // Generate pole triangles
+    for(auto round = 0; round <= 1; ++round) {
+        auto const topOffset      = edgesPerPole * round;
+        auto const triangleOffset = topOffset;
+        auto const bottomOffset =
+                round == 0 ? edgesPerPole * 2 : edgeCount - longitudeEdgeCount;
+
+        for(auto triangle = 0; triangle < trianglesPerPole; ++triangle) {
+            auto const topVertice = topOffset + triangle;
+
+            auto const bottomLeftVertice  = bottomOffset + triangle;
+            auto const bottomRightVertice = bottomOffset + triangle + 1;
+
+            triangles[triangleOffset + triangle] = {
+                    topVertice,
+                    round == 0 ? bottomRightVertice : bottomLeftVertice,
+                    round == 0 ? bottomLeftVertice : bottomRightVertice};
+
+            // print(triangles[triangleOffset + triangle]);
+        }
     }
+    for(auto row = 0; row < quadRows; ++row) {
+        auto const triangleOffset =
+                trianglesPerPole * 2 + quadsPerRow * row * 2;
 
-    // Generate south pole triangles
-    for(auto tri = 0; tri < trianglesPerPole; ++tri) {
-        auto const topOffset  = trianglesPerPole + quadsTriangleCount;
-        auto const topVertice = topOffset + tri;
+        auto const topOffset = trianglesPerPole * 2 + (quadsPerRow + 1) * row;
+        auto const bottomOffset = topOffset + longitudeEdgeCount;
 
-        auto const bottomVerticeOffset =
-                trianglesPerPole + quadsTriangleCount - longEdgeCount;
-        auto const bottomLeftVertice  = bottomVerticeOffset + tri;
-        auto const bottomRightVertice = bottomVerticeOffset + tri + 1;
+        for(auto quad = 0; quad < quadsPerRow; ++quad) {
+            auto const topLeft     = topOffset + quad;
+            auto const topRight    = topOffset + quad + 1;
+            auto const bottomLeft  = bottomOffset + quad;
+            auto const bottomRight = bottomOffset + quad + 1;
 
-        auto const triangleOffset  = topOffset;
-        triangles[topOffset + tri] = {
-                topVertice,
-                bottomRightVertice,
-                bottomLeftVertice};
-    }
+            // Both triangles make up a quad
+            //  Top left triangle
+            triangles[triangleOffset + quad * 2] = {
+                    topLeft,
+                    topRight,
+                    bottomLeft};
 
-    // Generate quads
-    for(auto tri = 0; tri < quadsTriangleCount; tri += 2) {
-        auto const topOffset       = trianglesPerPole;
-        auto const topLeftVertice  = topOffset + tri;
-        auto const topRightVertice = topOffset + tri + 1;
+            // Bottom tight triangle
+            triangles[triangleOffset + quad * 2 + 1] = {
+                    topRight,
+                    bottomRight,
+                    bottomLeft};
 
-        auto const bottomOffset       = trianglesPerPole + longEdgeCount * tri;
-        auto const bottomLeftVertice  = bottomOffset + tri;
-        auto const bottomRightVertice = bottomOffset + tri + 1;
-
-        auto const triangleOffset  = topOffset;
-        triangles[topOffset + tri] = {
-                topLeftVertice,
-                topRightVertice,
-                bottomLeftVertice};
-        triangles[topOffset + tri + 1] = {
-                topRightVertice,
-                bottomRightVertice,
-                bottomLeftVertice};
+            // print(triangles[triangleOffset + quad * 2]);
+            // print(triangles[triangleOffset + quad * 2 + 1]);
+        }
     }
 
     auto meshData = bonobo::mesh_data();
@@ -328,24 +270,24 @@ parametric_shapes::createSphere(
     glBindVertexArray(meshData.vao);
 
     auto const subBufferSize = sizeof(glm::vec3) * edgeCount;
-    auto const bufferSize    = subBufferSize * 5;
+    auto const bufferSize    = subBufferSize;
 
-    auto const verticesOffset  = 0u;
-    auto const biNormalsOffset = verticesOffset + edgeCount;
-    auto const tangentsOffset  = biNormalsOffset + edgeCount;
-    auto const normalsOffset   = tangentsOffset + edgeCount;
-    auto const texCoordsOffset = normalsOffset + edgeCount;
+    auto const verticesOffset = 0u;
+    // auto const biNormalsOffset = verticesOffset + edgeCount;
+    // auto const tangentsOffset  = biNormalsOffset + edgeCount;
+    // auto const normalsOffset   = tangentsOffset + edgeCount;
+    // auto const texCoordsOffset = normalsOffset + edgeCount;
 
     glGenBuffers(1, &meshData.bo);
     assert(meshData.bo != 0);
     glBindBuffer(GL_ARRAY_BUFFER, meshData.bo);
-    glBufferData(GL_ARRAY_BUFFER, bufferSize, nullptr, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, bufferSize, vertices.data(), GL_STATIC_DRAW);
 
-    glBufferSubData(
-            GL_ARRAY_BUFFER,
-            verticesOffset,
-            subBufferSize,
-            vertices.data());
+    // glBufferSubData(
+    // GL_ARRAY_BUFFER,
+    // verticesOffset,
+    // subBufferSize,
+    // vertices.data());
     glEnableVertexAttribArray(
             static_cast<GLuint>(bonobo::shader_bindings::vertices));
     glVertexAttribPointer(
@@ -356,75 +298,75 @@ parametric_shapes::createSphere(
             0,
             reinterpret_cast<GLvoid const*>(verticesOffset));
 
-    glBufferSubData(
-            GL_ARRAY_BUFFER,
-            biNormalsOffset,
-            subBufferSize,
-            biNormals.data());
-    glEnableVertexAttribArray(
-            static_cast<GLuint>(bonobo::shader_bindings::binormals));
-    glVertexAttribPointer(
-            static_cast<GLuint>(bonobo::shader_bindings::binormals),
-            glm::vec3::length(),
-            GL_FLOAT,
-            GL_FALSE,
-            0,
-            reinterpret_cast<GLvoid const*>(biNormalsOffset));
+    // glBufferSubData(
+    // GL_ARRAY_BUFFER,
+    // biNormalsOffset,
+    // subBufferSize,
+    // biNormals.data());
+    // glEnableVertexAttribArray(
+    // static_cast<GLuint>(bonobo::shader_bindings::binormals));
+    // glVertexAttribPointer(
+    // static_cast<GLuint>(bonobo::shader_bindings::binormals),
+    // glm::vec3::length(),
+    // GL_FLOAT,
+    // GL_FALSE,
+    // 0,
+    // reinterpret_cast<GLvoid const*>(biNormalsOffset));
 
-    glBufferSubData(
-            GL_ARRAY_BUFFER,
-            tangentsOffset,
-            subBufferSize,
-            tangents.data());
-    glEnableVertexAttribArray(
-            static_cast<GLuint>(bonobo::shader_bindings::tangents));
-    glVertexAttribPointer(
-            static_cast<GLuint>(bonobo::shader_bindings::tangents),
-            glm::vec3::length(),
-            GL_FLOAT,
-            GL_FALSE,
-            0,
-            reinterpret_cast<GLvoid const*>(tangentsOffset));
+    // glBufferSubData(
+    // GL_ARRAY_BUFFER,
+    // tangentsOffset,
+    // subBufferSize,
+    // tangents.data());
+    // glEnableVertexAttribArray(
+    // static_cast<GLuint>(bonobo::shader_bindings::tangents));
+    // glVertexAttribPointer(
+    // static_cast<GLuint>(bonobo::shader_bindings::tangents),
+    // glm::vec3::length(),
+    // GL_FLOAT,
+    // GL_FALSE,
+    // 0,
+    // reinterpret_cast<GLvoid const*>(tangentsOffset));
 
-    glBufferSubData(
-            GL_ARRAY_BUFFER,
-            normalsOffset,
-            subBufferSize,
-            normals.data());
-    glEnableVertexAttribArray(
-            static_cast<GLuint>(bonobo::shader_bindings::normals));
-    glVertexAttribPointer(
-            static_cast<GLuint>(bonobo::shader_bindings::normals),
-            glm::vec3::length(),
-            GL_FLOAT,
-            GL_FALSE,
-            0,
-            reinterpret_cast<GLvoid const*>(normalsOffset));
+    // glBufferSubData(
+    // GL_ARRAY_BUFFER,
+    // normalsOffset,
+    // subBufferSize,
+    // normals.data());
+    // glEnableVertexAttribArray(
+    // static_cast<GLuint>(bonobo::shader_bindings::normals));
+    // glVertexAttribPointer(
+    // static_cast<GLuint>(bonobo::shader_bindings::normals),
+    // glm::vec3::length(),
+    // GL_FLOAT,
+    // GL_FALSE,
+    // 0,
+    // reinterpret_cast<GLvoid const*>(normalsOffset));
 
-    glBufferSubData(
-            GL_ARRAY_BUFFER,
-            texCoordsOffset,
-            subBufferSize,
-            texCoords.data());
-    glEnableVertexAttribArray(
-            static_cast<GLuint>(bonobo::shader_bindings::texcoords));
-    glVertexAttribPointer(
-            static_cast<GLuint>(bonobo::shader_bindings::texcoords),
-            glm::vec3::length(),
-            GL_FLOAT,
-            GL_FALSE,
-            0,
-            reinterpret_cast<GLvoid const*>(texCoordsOffset));
+    // glBufferSubData(
+    // GL_ARRAY_BUFFER,
+    // texCoordsOffset,
+    // subBufferSize,
+    // texCoords.data());
+    // glEnableVertexAttribArray(
+    // static_cast<GLuint>(bonobo::shader_bindings::texcoords));
+    // glVertexAttribPointer(
+    // static_cast<GLuint>(bonobo::shader_bindings::texcoords),
+    // glm::vec3::length(),
+    // GL_FLOAT,
+    // GL_FALSE,
+    // 0,
+    // reinterpret_cast<GLvoid const*>(texCoordsOffset));
 
-    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    meshData.indices_nb = edgeCount;
+    meshData.indices_nb = triangleCount * 3;    // 3 indices per triangle
     glGenBuffers(1, &meshData.ibo);
     assert(meshData.ibo != 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshData.ibo);
     glBufferData(
             GL_ELEMENT_ARRAY_BUFFER,
-            triangles.size() * sizeof(decltype(triangles)::value_type),
+            triangles.size() * sizeof(glm::uvec3),
             triangles.data(),
             GL_STATIC_DRAW);
 
@@ -432,6 +374,7 @@ parametric_shapes::createSphere(
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     return meshData;
+    // return {};
 }
 
 bonobo::mesh_data
