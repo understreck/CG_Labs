@@ -7,6 +7,7 @@
 #include "core/FPSCamera.h"
 #include "core/node.hpp"
 #include "core/ShaderProgramManager.hpp"
+#include <cstddef>
 #include <imgui.h>
 
 #include <glm/glm.hpp>
@@ -161,7 +162,7 @@ edaf80::Assignment2::run()
     glEnable(GL_DEPTH_TEST);
 
     auto const control_point_sphere =
-            parametric_shapes::createSphere(0.1f, 100u, 50u);
+            parametric_shapes::createSphere(0.1f, 200u, 100u);
     std::array<glm::vec3, 9> control_point_locations = {
             glm::vec3(0.0f, 0.0f, 0.0f),
             glm::vec3(1.0f, 1.8f, 1.0f),
@@ -194,12 +195,21 @@ edaf80::Assignment2::run()
 
     changeCullMode(cull_mode);
 
+    // Interpolation setup
+    auto terpTarget           = 1;    // Current target of interpolation
+    auto constexpr terpObject = 0;    // Current object that is interpolating
+    auto constexpr targets =
+            std::array{"0", "1", "2", "3", "4", "5", "6", "7", "8"};
+    static_assert(targets.size() == control_point_locations.size());
+    auto lerpSpeed = 1.0f;
+
     while(!glfwWindowShouldClose(window)) {
         auto const nowTime = std::chrono::high_resolution_clock::now();
         auto const deltaTimeUs =
                 std::chrono::duration_cast<std::chrono::microseconds>(
                         nowTime - lastTime);
-        lastTime = nowTime;
+        auto const deltaTimeF = deltaTimeUs.count() / 1000'000.f;
+        lastTime              = nowTime;
 
         auto& io = ImGui::GetIO();
         inputHandler.SetUICapture(io.WantCaptureMouse, io.WantCaptureKeyboard);
@@ -233,13 +243,51 @@ edaf80::Assignment2::run()
         bonobo::changePolygonMode(polygon_mode);
 
         if(interpolate) {
+            auto constexpr nextPoint = [end = control_points.size(),
+                                        terpObject](std::size_t current) {
+                current = ++current == end ? 0 : current;
+                if(current == terpObject) {
+                    return ++current == end ? 0 : current;
+                }
+                return current;
+            };
+            auto constexpr prevPoint = [end = control_points.size(),
+                                        terpObject](std::size_t current) {
+                current = --current == 0 ? end - 1 : current;
+                if(current == terpObject) {
+                    current = --current == 0 ? end - 1 : current;
+                }
+                return current;
+            };
+
+            auto& objectTransform = control_points[terpObject].get_transform();
+            auto const distance   = control_point_locations[terpTarget]
+                                  - objectTransform.GetTranslation();
+
             //! \todo Interpolate the movement of a shape between various
             //!        control points.
             if(use_linear) {
-                //! \todo Compute the interpolated position
-                //!       using the linear interpolation.
+                if(glm::dot(distance, distance) < (0.01f * deltaTimeF)) {
+                    terpTarget = nextPoint(terpTarget);
+                }
+                objectTransform.Translate(interpolation::evalLERP(
+                        objectTransform.GetTranslation(),
+                        control_point_locations[terpTarget],
+                        lerpSpeed * deltaTimeF));
             }
             else {
+                if((elapsed_time_s - std::floor(elapsed_time_s)) < deltaTimeF) {
+                    terpTarget = nextPoint(terpTarget);
+                }
+                objectTransform.SetTranslate(interpolation::evalCatmullRom(
+                        control_point_locations[prevPoint(
+                                prevPoint(terpTarget))],
+                        control_point_locations[prevPoint(terpTarget)],
+                        control_point_locations[terpTarget],
+                        control_point_locations[nextPoint((terpTarget))],
+                        catmull_rom_tension,
+                        elapsed_time_s - std::floor(elapsed_time_s)));
+                // auto const catmulRomTransform
                 //! \todo Compute the interpolated position
                 //!       using the Catmull-Rom interpolation;
                 //!       use the `catmull_rom_tension`
@@ -276,26 +324,39 @@ edaf80::Assignment2::run()
                 }
             }
             ImGui::Separator();
-            ImGui::Checkbox("Show control points", &show_control_points);
-            ImGui::Checkbox("Enable interpolation", &interpolate);
-            ImGui::Checkbox("Use linear interpolation", &use_linear);
-            ImGui::SliderFloat(
-                    "Catmull-Rom tension",
-                    &catmull_rom_tension,
-                    0.0f,
-                    1.0f);
+            {
+                ImGui::Checkbox("Show control points", &show_control_points);
+            }
             ImGui::Separator();
-            ImGui::Checkbox("Show basis", &show_basis);
-            ImGui::SliderFloat(
-                    "Basis thickness scale",
-                    &basis_thickness_scale,
-                    0.0f,
-                    100.0f);
-            ImGui::SliderFloat(
-                    "Basis length scale",
-                    &basis_length_scale,
-                    0.0f,
-                    100.0f);
+            {
+                ImGui::Checkbox("Enable interpolation", &interpolate);
+                ImGui::Combo(
+                        "Interpolation target",
+                        &terpTarget,
+                        targets.data(),
+                        targets.size());
+                ImGui::Checkbox("Use linear interpolation", &use_linear);
+                ImGui::SliderFloat("Lerp speed", &lerpSpeed, 0.0f, 1.0f);
+                ImGui::SliderFloat(
+                        "Catmull-Rom tension",
+                        &catmull_rom_tension,
+                        0.0f,
+                        1.0f);
+            }
+            ImGui::Separator();
+            {
+                ImGui::Checkbox("Show basis", &show_basis);
+                ImGui::SliderFloat(
+                        "Basis thickness scale",
+                        &basis_thickness_scale,
+                        0.0f,
+                        100.0f);
+                ImGui::SliderFloat(
+                        "Basis length scale",
+                        &basis_length_scale,
+                        0.0f,
+                        100.0f);
+            }
         }
         ImGui::End();
 
