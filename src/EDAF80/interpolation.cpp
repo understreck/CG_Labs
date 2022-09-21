@@ -21,7 +21,11 @@ interpolation::evalCatmullRom(
             {-t, 0.f, t, 0.f},
             {2 * t, t - 3, 3 - 2 * t, -t},
             {-t, 2 - t, t - 2, t}});
+<<<<<<< HEAD
     auto const pointVec        = glm::transpose(
+=======
+    auto const pointVec = glm::transpose(
+>>>>>>> d560c36ca4ce402a273094bc0956f1f2d6334933
             glm::mat4{{p0, 0.f}, {p1, 0.f}, {p2, 0.f}, {p3, 0.f}});
     return scaleVec * transformMatrix * pointVec;
 }
