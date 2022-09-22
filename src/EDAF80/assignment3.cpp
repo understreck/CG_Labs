@@ -75,6 +75,17 @@ edaf80::Assignment3::run()
         return;
     }
 
+    GLuint skybox_shader = 0u;
+    program_manager.CreateAndRegisterProgram(
+            "Skybox",
+            {{ShaderType::vertex, "EDAF80/skybox.vert"},
+             {ShaderType::fragment, "EDAF80/skybox.frag"}},
+            skybox_shader);
+    if(skybox_shader == 0u) {
+        LogError("Failed to load skybox shader");
+        return;
+    }
+
     GLuint diffuse_shader = 0u;
     program_manager.CreateAndRegisterProgram(
             "Diffuse",
@@ -131,15 +142,38 @@ edaf80::Assignment3::run()
     //
     // Set up the two spheres used.
     //
-    auto skybox_shape = parametric_shapes::createSphere(20.0f, 100u, 100u);
+    auto skybox_shape = parametric_shapes::createSphere(200.0f, 100u, 100u);
     if(skybox_shape.vao == 0u) {
         LogError("Failed to retrieve the mesh for the skybox");
         return;
     }
 
+    auto const commonCubemapPath = std::string{"res/cubemaps/NissiBeach2/"};
+    auto const skybox_texture    = bonobo::loadTextureCubeMap(
+            commonCubemapPath + "posx.jpg",
+            commonCubemapPath + "negx.jpg",
+            commonCubemapPath + "posy.jpg",
+            commonCubemapPath + "negy.jpg",
+            commonCubemapPath + "posz.jpg",
+            commonCubemapPath + "negz.jpg");
+    if(skybox_texture == 0u) {
+        LogError("Failed to load skybox texture");
+        return;
+    }
     Node skybox;
     skybox.set_geometry(skybox_shape);
-    skybox.set_program(&fallback_shader, set_uniforms);
+    skybox.add_texture("skybox", skybox_texture, GL_TEXTURE_CUBE_MAP);
+    skybox.set_program(&skybox_shader, [&](GLuint program) {
+        glUniform3fv(
+                glGetUniformLocation(program, "camera_position"),
+                1,
+                glm::value_ptr(mCamera.mWorld.GetTranslation()));
+        glUniformMatrix4fv(
+                glGetUniformLocation(program, "vertex_model_to_world"),
+                1,
+                false,
+                glm::value_ptr(mCamera.mWorld.GetRotationMatrixInverse()));
+    });
 
     auto demo_shape = parametric_shapes::createSphere(1.5f, 40u, 40u);
     if(demo_shape.vao == 0u) {
