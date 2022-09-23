@@ -164,15 +164,11 @@ edaf80::Assignment3::run()
     skybox.set_geometry(skybox_shape);
     skybox.add_texture("skybox", skybox_texture, GL_TEXTURE_CUBE_MAP);
     skybox.set_program(&skybox_shader, [&](GLuint program) {
-        glUniform3fv(
-                glGetUniformLocation(program, "camera_position"),
-                1,
-                glm::value_ptr(mCamera.mWorld.GetTranslation()));
         glUniformMatrix4fv(
-                glGetUniformLocation(program, "vertex_model_to_world"),
+                glGetUniformLocation(program, "center_on_camera"),
                 1,
                 false,
-                glm::value_ptr(mCamera.mWorld.GetRotationMatrixInverse()));
+                glm::value_ptr(mCamera.mWorld.GetTranslationMatrix()));
     });
 
     auto demo_shape = parametric_shapes::createSphere(1.5f, 40u, 40u);
