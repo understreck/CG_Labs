@@ -86,6 +86,17 @@ edaf80::Assignment3::run()
         return;
     }
 
+    GLuint phong_shader = 0u;
+    program_manager.CreateAndRegisterProgram(
+            "Phong",
+            {{ShaderType::vertex, "EDAF80/phong.vert"},
+             {ShaderType::fragment, "EDAF80/phong.frag"}},
+            phong_shader);
+    if(phong_shader == 0u) {
+        LogError("Failed to load skybox shader");
+        return;
+    }
+
     GLuint diffuse_shader = 0u;
     program_manager.CreateAndRegisterProgram(
             "Diffuse",
@@ -122,10 +133,9 @@ edaf80::Assignment3::run()
     };
 
     bool use_normal_mapping       = false;
-    auto camera_position          = mCamera.mWorld.GetTranslation();
-    auto const phong_set_uniforms = [&use_normal_mapping,
-                                     &light_position,
-                                     &camera_position](GLuint program) {
+    auto const phong_set_uniforms = [&mCamera = this->mCamera,
+                                     &use_normal_mapping,
+                                     &light_position](GLuint program) {
         glUniform1i(
                 glGetUniformLocation(program, "use_normal_mapping"),
                 use_normal_mapping ? 1 : 0);
@@ -136,7 +146,7 @@ edaf80::Assignment3::run()
         glUniform3fv(
                 glGetUniformLocation(program, "camera_position"),
                 1,
-                glm::value_ptr(camera_position));
+                glm::value_ptr(mCamera.mWorld.GetTranslation()));
     };
 
     //
@@ -186,7 +196,7 @@ edaf80::Assignment3::run()
     Node demo_sphere;
     demo_sphere.set_geometry(demo_shape);
     demo_sphere.set_material_constants(demo_material);
-    demo_sphere.set_program(&fallback_shader, phong_set_uniforms);
+    demo_sphere.set_program(&phong_shader, phong_set_uniforms);
 
     glClearDepthf(1.0f);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -223,7 +233,6 @@ edaf80::Assignment3::run()
         if(use_orbit_camera) {
             mCamera.mWorld.LookAt(glm::vec3(0.0f));
         }
-        camera_position = mCamera.mWorld.GetTranslation();
 
         if(inputHandler.GetKeycodeState(GLFW_KEY_R) & JUST_PRESSED) {
             shader_reload_failed = !program_manager.ReloadAllPrograms();

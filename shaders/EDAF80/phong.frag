@@ -1,10 +1,14 @@
+
 #version 410
 
 uniform vec3 light_position;
 
 in VS_OUT {
+    vec2 texcoord;
     vec3 vertex;
     vec3 normal;
+    vec3 tangent;
+    vec3 binormal;
 } fs_in;
 
 out vec4 frag_color;
