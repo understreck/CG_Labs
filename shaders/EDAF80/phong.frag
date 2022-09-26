@@ -17,23 +17,38 @@ uniform int   use_normal_mapping;
 in VS_OUT {
     vec2 texcoord;
     vec3 vertex;
-    vec3 normal;
+    mat3 TBN;
 } fs_in;
 
 out vec4 frag_colour;
 
 void main()
 {
-    vec3 lightDir = normalize(light_position - fs_in.vertex);
-
     vec3 diffuseTex = texture(diffuse_texture, fs_in.texcoord).xyz;
     vec3 specularTex = texture(specular_texture, fs_in.texcoord).xyz;
-    vec3 normalTex = texture(normal_texture, fs_in.texcoord).xyz;
+    vec3 normalTex = normalize(
+            texture(normal_texture, fs_in.texcoord).xyz * 2.0 - 1.0);
 
     vec3 ambient = ambient_colour * diffuseTex;
-    vec3 diffuse = clamp(dot(normalize(fs_in.normal), lightDir), 0.0, 1.0) * diffuseTex;
+
+    vec3 lightDir = normalize(light_position - fs_in.vertex);
+
+    vec3 normal = use_normal_mapping== 1?
+    normalize(fs_in.TBN * normalTex) :
+    fs_in.TBN[2];
+
+    vec3 diffuse =
+        clamp(dot(normal, lightDir), 0.0, 1.0) *
+        diffuseTex;
+
+    vec3 viewDir            = normalize(camera_position - fs_in.vertex);
+    vec3 lightReflectDir    = reflect(lightDir, normal);
+    float specularVal       = pow(
+            clamp(dot(-viewDir, lightReflectDir), 0.0, 1.0),
+            shininess_value);
+
+    vec3 specular = specularVal * specular_colour *specularTex;
 
     frag_colour =
-        vec4(ambient + diffuse, 1.0);
-        //clamp(dot(normalize(fs_in.normal), lightDir), 0.0, 1.0);
+        vec4(ambient + diffuse + specularVal, 1.0);
 }
