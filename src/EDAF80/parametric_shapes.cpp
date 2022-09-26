@@ -16,23 +16,44 @@ parametric_shapes::createQuad(
         unsigned int const horizontal_split_count,
         unsigned int const vertical_split_count)
 {
-    auto const vertices = std::array<glm::vec3, 4>{
-            glm::vec3(0.0f, 0.0f, 0.0f),
-            glm::vec3(width, 0.0f, 0.0f),
-            glm::vec3(width, height, 0.0f),
-            glm::vec3(0.0f, height, 0.0f)};
+    auto const lines     = vertical_split_count + 2;
+    auto const columns   = horizontal_split_count + 2;
+    auto const edgeCount = lines * columns;
 
-    auto const index_sets = std::array<glm::uvec3, 2>{
-            glm::uvec3(0u, 1u, 2u),
-            glm::uvec3(0u, 2u, 3u)};
+    auto vertices = std::vector<glm::vec3>{lines * columns};
+    for(auto line = 0u; line < lines; ++line) {
+        auto const yStep  = height / float(lines - 1);
+        auto const y      = yStep * line;
+        auto const offset = lines * line;
+
+        for(auto column = 0u; column < columns; ++column) {
+            auto const xStep = width / float(columns - 1);
+            auto const x     = xStep * column;
+
+            vertices[offset + column] = {x, 0.f, y};
+        }
+    }
+
+    auto const quadsPerRow    = (columns - 1);
+    auto const quadsPerColumn = (lines - 1);
+    auto const numQuads       = quadsPerRow * quadsPerColumn;
+    auto const numTriangles   = numQuads * 2;
+    auto index_sets           = std::vector<glm::uvec3>{numTriangles};
+
+    for(auto row = 0u; row < quadsPerColumn; ++row) {
+        for(auto column = 0u; column < quadsPerRow; ++column) {
+            auto const topOffset    = columns * row + column;
+            auto const bottomOffset = topOffset + columns;
+            auto const index        = topOffset * 2;
+            index_sets[index]       = {topOffset, topOffset + 1, bottomOffset};
+            index_sets[index + 1]   = {
+                      topOffset + 1,
+                      bottomOffset + 1,
+                      bottomOffset};
+        }
+    }
 
     bonobo::mesh_data data;
-
-    if(horizontal_split_count > 0u || vertical_split_count > 0u) {
-        LogError(
-                "parametric_shapes::createQuad() does not support tesselation.");
-        return data;
-    }
 
     //
     // NOTE:
@@ -49,9 +70,7 @@ parametric_shapes::createQuad(
     // name in the given array (second argument). Since we only need one,
     // pass a pointer to `data.vao`.
     glGenVertexArrays(1, &data.vao);
-
-    // To be able to store information, the Vertex Array has to be bound
-    // first.
+    assert(data.vao != 0u);
     glBindVertexArray(data.vao);
 
     // To store the data, we need to allocate buffers on the GPU. Let's
@@ -62,11 +81,7 @@ parametric_shapes::createQuad(
     // return their names in an array. Have the buffer's name stored into
     // `data.bo`.
     glGenBuffers(1, &data.bo);
-
-    // Similar to the Vertex Array, we need to bind it first before storing
-    // anything in it. The data stored in it can be interpreted in
-    // different ways. Here, we will say that it is just a simple 1D-array
-    // and therefore bind the buffer to the corresponding target.
+    assert(data.bo != 0u);
     glBindBuffer(GL_ARRAY_BUFFER, data.bo);
 
     glBufferData(
@@ -112,6 +127,7 @@ parametric_shapes::createQuad(
     //
     // Have the buffer's name stored into `data.ibo`.
     glGenBuffers(1, &data.ibo);
+    assert(data.ibo != 0u);
 
     // We still want a 1D-array, but this time it should be a 1D-array of
     // elements, aka. indices!
@@ -135,10 +151,10 @@ parametric_shapes::createQuad(
     return data;
 }
 
-//auto
-//print(glm::vec3 v)
+// auto
+// print(glm::vec3 v)
 //{
-    //std::cerr << v.x << " : " << v.y << " : " << v.z << "\n";
+// std::cerr << v.x << " : " << v.y << " : " << v.z << "\n";
 //}
 
 auto
@@ -160,10 +176,10 @@ generate_edges(float radius, float theta, float phi)
                     {radius * sinTheta * sinPhi,
                      -radius * cosPhi,
                      radius * cosTheta * sinPhi},
-            .tangent =
-                    glm::normalize(glm::vec3{radius * cosTheta * sinPhi,
-                     0,
-                     -radius * sinTheta * sinPhi}),
+            .tangent  = glm::normalize(glm::vec3{
+                    radius * cosTheta * sinPhi,
+                    0,
+                    -radius * sinTheta * sinPhi}),
             .binormal = glm::normalize(glm::vec3{
                     radius * sinTheta * cosPhi,
                     radius * sinPhi,
@@ -246,8 +262,7 @@ parametric_shapes::createSphere(
             vertices[edgeOffset + lon]  = position;
             tangents[edgeOffset + lon]  = tangent;
             binormals[edgeOffset + lon] = binormal;
-            normals[edgeOffset + lon] =
-                    glm::cross(tangent, binormal);
+            normals[edgeOffset + lon]   = glm::cross(tangent, binormal);
 
             texCoords[edgeOffset + lon] = {
                     xTexOffset + xTextStep * lon,
@@ -266,7 +281,7 @@ parametric_shapes::createSphere(
 
     auto triangles = std::vector<glm::uvec3>{triangleCount};
 
-    //std::cerr << triangles.size() << "\n\n\n";
+    // std::cerr << triangles.size() << "\n\n\n";
 
     // Generate pole triangles
     for(auto round = 0; round <= 1; ++round) {
