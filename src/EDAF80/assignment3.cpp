@@ -93,7 +93,7 @@ edaf80::Assignment3::run()
              {ShaderType::fragment, "EDAF80/phong.frag"}},
             phong_shader);
     if(phong_shader == 0u) {
-        LogError("Failed to load skybox shader");
+        LogError("Failed to load phong shader");
         return;
     }
 
@@ -170,6 +170,7 @@ edaf80::Assignment3::run()
         LogError("Failed to load skybox texture");
         return;
     }
+
     Node skybox;
     skybox.set_geometry(skybox_shape);
     skybox.add_texture("skybox", skybox_texture, GL_TEXTURE_CUBE_MAP);
@@ -193,7 +194,29 @@ edaf80::Assignment3::run()
     demo_material.specular  = glm::vec3(1.0f, 1.0f, 1.0f);
     demo_material.shininess = 10.0f;
 
+    auto const demoTexPath = std::string{"./res/textures/"};
+    auto const diffuseTexture =
+            bonobo::loadTexture2D(demoTexPath + "leather_red_02_coll1_2k.jpg");
+    if(diffuseTexture == 0u) {
+        LogError("Failed to load diffuse texture");
+        return;
+    }
+    auto const specularTexture =
+            bonobo::loadTexture2D(demoTexPath + "leather_red_02_rough_2k.jpg");
+    if(specularTexture == 0u) {
+        LogError("Failed to load specular texture");
+        return;
+    }
+    auto const normalTexture =
+            bonobo::loadTexture2D(demoTexPath + "leather_red_02_nor_2k.jpg");
+    if(normalTexture == 0u) {
+        LogError("Failed to load normal texture");
+        return;
+    }
     Node demo_sphere;
+    demo_sphere.add_texture("diffuse_texture", diffuseTexture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("specular_texture", specularTexture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("normal_texture", normalTexture, GL_TEXTURE_2D);
     demo_sphere.set_geometry(demo_shape);
     demo_sphere.set_material_constants(demo_material);
     demo_sphere.set_program(&phong_shader, phong_set_uniforms);
