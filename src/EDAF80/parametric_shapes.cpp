@@ -161,13 +161,13 @@ generate_edges(float radius, float theta, float phi)
                      -radius * cosPhi,
                      radius * cosTheta * sinPhi},
             .tangent =
-                    {radius * cosTheta * sinPhi,
+                    glm::normalize(glm::vec3{radius * cosTheta * sinPhi,
                      0,
-                     -radius * sinTheta * sinPhi},
-            .binormal = {
+                     -radius * sinTheta * sinPhi}),
+            .binormal = glm::normalize(glm::vec3{
                     radius * sinTheta * cosPhi,
                     radius * sinPhi,
-                    radius * cosTheta * cosPhi}};
+                    radius * cosTheta * cosPhi})};
 }
 
 bonobo::mesh_data
@@ -192,13 +192,11 @@ parametric_shapes::createSphere(
     for(auto round = 0; round <= 1; ++round) {
         auto const edgeOffset = round == 0 ? 0 : edgesPerPole;
 
-        auto const phi = round == 0 ? 0.f : glm::pi<float>();
-
         auto const xTextStep  = 1.f / edgesPerPole;
         auto const xTexOffset = xTextStep / 2.f;
 
-        auto const sinPhi = std::sin(phi);
-        auto const cosPhi = std::cos(phi);
+        auto const sinPhi = 0.f;
+        auto const cosPhi = 1.f - 2.f * round;
 
         for(auto edge = 0; edge < edgesPerPole; ++edge) {
             auto const thetaStep   = glm::two_pi<float>() / edgesPerPole;
@@ -207,21 +205,17 @@ parametric_shapes::createSphere(
             auto const sinTheta    = std::sin(theta);
             auto const cosTheta    = std::cos(theta);
 
-            vertices[edgeOffset + edge] = {
-                    radius * sinTheta * sinPhi,
-                    -radius * cosPhi,
-                    radius * cosTheta * sinPhi};
+            vertices[edgeOffset + edge] = {0.f, -radius * cosPhi, 0.f};
+            normals[edgeOffset + edge] =
+                    glm::normalize(vertices[edgeOffset + edge]);
             tangents[edgeOffset + edge] = {
                     radius * cosTheta,
                     0,
                     -radius * sinTheta};
             // {0,0,0}
-            binormals[edgeOffset + edge] =
-                    glm::vec3{radius * sinTheta, 0, radius * cosTheta}
-                    * (1.f - 2.0f * round);
-            normals[edgeOffset + edge] = glm::cross(
+            binormals[edgeOffset + edge] = glm::cross(
                     tangents[edgeOffset + edge],
-                    binormals[edgeOffset + edge]);
+                    normals[edgeOffset + edge]);
 
             texCoords[edgeOffset + edge] = {
                     xTexOffset + xTextStep * edge,
@@ -252,7 +246,8 @@ parametric_shapes::createSphere(
             vertices[edgeOffset + lon]  = position;
             tangents[edgeOffset + lon]  = tangent;
             binormals[edgeOffset + lon] = binormal;
-            normals[edgeOffset + lon]   = glm::cross(tangent, binormal);
+            normals[edgeOffset + lon] =
+                    glm::cross(tangent, binormal);
 
             texCoords[edgeOffset + lon] = {
                     xTexOffset + xTextStep * lon,
