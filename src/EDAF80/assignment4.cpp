@@ -129,7 +129,10 @@ edaf80::Assignment4::run()
                 glm::value_ptr(mCamera.mWorld.GetTranslationMatrix()));
     });
 
-    auto const quadMesh = parametric_shapes::createQuad(100, 100, 1000, 1000);
+    auto constexpr waterHeight = 100.f;
+    auto constexpr waterWidth  = 100.f;
+    auto const quadMesh =
+            parametric_shapes::createQuad(waterHeight, waterWidth, 1000, 1000);
     if(quadMesh.vao == 0u) {
         LogError("Failed to load quad mesh");
         return;
@@ -138,6 +141,7 @@ edaf80::Assignment4::run()
     auto water = Node{};
     water.set_geometry(quadMesh);
     water.set_program(&water_shader, [](GLuint program) { return; });
+    water.get_transform().Translate({-waterHeight / 2, 0.f, -waterWidth / 2});
 
     glClearDepthf(1.0f);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
