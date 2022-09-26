@@ -135,11 +135,11 @@ parametric_shapes::createQuad(
     return data;
 }
 
-auto
-print(glm::vec3 v)
-{
-    std::cerr << v.x << " : " << v.y << " : " << v.z << "\n";
-}
+//auto
+//print(glm::vec3 v)
+//{
+    //std::cerr << v.x << " : " << v.y << " : " << v.z << "\n";
+//}
 
 auto
 generate_edges(float radius, float theta, float phi)
@@ -266,7 +266,7 @@ parametric_shapes::createSphere(
 
     auto triangles = std::vector<glm::uvec3>{triangleCount};
 
-    std::cerr << triangles.size() << "\n\n\n";
+    //std::cerr << triangles.size() << "\n\n\n";
 
     // Generate pole triangles
     for(auto round = 0; round <= 1; ++round) {
