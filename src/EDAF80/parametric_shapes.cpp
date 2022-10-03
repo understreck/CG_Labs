@@ -20,7 +20,8 @@ parametric_shapes::createQuad(
     auto const columns   = horizontal_split_count + 2;
     auto const edgeCount = lines * columns;
 
-    auto vertices = std::vector<glm::vec3>{lines * columns};
+    auto vertices  = std::vector<glm::vec3>{lines * columns};
+    auto texcoords = std::vector<glm::vec3>{lines * columns};
     for(auto line = 0u; line < lines; ++line) {
         auto const yStep  = height / float(lines - 1);
         auto const y      = yStep * line;
@@ -30,7 +31,8 @@ parametric_shapes::createQuad(
             auto const xStep = width / float(columns - 1);
             auto const x     = xStep * column;
 
-            vertices[offset + column] = {x, 0.f, y};
+            vertices[offset + column]  = {x, 0.f, y};
+            texcoords[offset + column] = {x / width, y / height, 0.0};
         }
     }
 
@@ -84,45 +86,40 @@ parametric_shapes::createQuad(
     assert(data.bo != 0u);
     glBindBuffer(GL_ARRAY_BUFFER, data.bo);
 
+    auto const vertSize =
+            vertices.size() * sizeof(decltype(vertices)::value_type);
+    auto const texSize =
+            texcoords.size() * sizeof(decltype(texcoords)::value_type);
+
+    auto const bufferSize = vertSize + texSize;
     glBufferData(
             GL_ARRAY_BUFFER,
-            vertices.size() * sizeof(decltype(vertices)::value_type),
-            /* where is the data stored on the CPU? */ vertices.data(),
+            bufferSize,
+            /* where is the data stored on the CPU? */ nullptr,
             /* inform OpenGL that the data is modified once, but used often */
             GL_STATIC_DRAW);
 
-    // Vertices have been just stored into a buffer, but we still need to
-    // tell Vertex Array where to find them, and how to interpret the data
-    // within that buffer.
-    //
-    // You will see shaders in more detail in lab 3, but for now they are
-    // just pieces of code running on the GPU and responsible for moving
-    // all the vertices to clip space, and assigning a colour to each pixel
-    // covered by geometry.
-    // Those shaders have inputs, some of them are the data we just stored
-    // in a buffer object. We need to tell the Vertex Array which inputs
-    // are enabled, and this is done by the following line of code, which
-    // enables the input for vertices:
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vertSize, vertices.data());
     glEnableVertexAttribArray(
-            static_cast<unsigned int>(bonobo::shader_bindings::vertices));
-
-    // Once an input is enabled, we need to explain where the data comes
-    // from, and how it interpret it. When calling the following function,
-    // the Vertex Array will automatically use the current buffer bound to
-    // GL_ARRAY_BUFFER as its source for the data. How to interpret it is
-    // specified below:
+            static_cast<GLuint>(bonobo::shader_bindings::vertices));
     glVertexAttribPointer(
-            static_cast<unsigned int>(bonobo::shader_bindings::vertices),
-            decltype(vertices)::value_type::length(),
-            /* what is the type of each component? */ GL_FLOAT,
-            /* should it automatically normalise the values stored */ GL_FALSE,
-            /* once all components of a vertex have been read, how far away (in
-               bytes) is the next vertex? */
+            static_cast<GLuint>(bonobo::shader_bindings::vertices),
+            glm::vec3::length(),
+            GL_FLOAT,
+            GL_FALSE,
             0,
-            /* how far away (in bytes) from the start of the buffer is the first
-               vertex? */
-            reinterpret_cast<GLvoid const*>(0x0));
+            reinterpret_cast<GLvoid const*>(0));
 
+    glBufferSubData(GL_ARRAY_BUFFER, vertSize, texSize, texcoords.data());
+    glEnableVertexAttribArray(
+            static_cast<GLuint>(bonobo::shader_bindings::texcoords));
+    glVertexAttribPointer(
+            static_cast<GLuint>(bonobo::shader_bindings::texcoords),
+            glm::vec3::length(),
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            reinterpret_cast<GLvoid const*>(vertSize));
     // Now, let's allocate a second one for the indices.
     //
     // Have the buffer's name stored into `data.ibo`.
@@ -247,9 +244,9 @@ parametric_shapes::createSphere(
         auto const phiOffset = phiStep;
         auto const phi       = phiOffset + phiStep * lat;
 
-        auto const xTextStep  = 1.f / longitude_split_count;
-        //auto const xTexOffset = xTextStep / 2.f;
-        auto const yTexStep   = 1.f / latitude_split_count;
+        auto const xTextStep = 1.f / longitude_split_count;
+        // auto const xTexOffset = xTextStep / 2.f;
+        auto const yTexStep = 1.f / latitude_split_count;
 
         auto const edgeOffset = 2 * edgesPerPole + longitudeEdgeCount * lat;
         for(auto lon = 0; lon < longitudeEdgeCount; ++lon) {

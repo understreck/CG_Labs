@@ -118,6 +118,12 @@ edaf80::Assignment4::run()
         return;
     }
 
+    auto const water_texture = bonobo::loadTexture2D("res/textures/waves.png");
+    if(water_texture == 0u) {
+        LogError("Failed to load water texture");
+        return;
+    }
+
     Node skybox;
     skybox.set_geometry(skybox_shape);
     skybox.add_texture("skybox", skybox_texture, GL_TEXTURE_CUBE_MAP);
@@ -138,9 +144,20 @@ edaf80::Assignment4::run()
         return;
     }
 
-    auto water = Node{};
+    auto waveSharpness = 0.2f;
+    auto water         = Node{};
     water.set_geometry(quadMesh);
-    water.set_program(&water_shader, [](GLuint program) { return; });
+    water.add_texture("normals", water_texture, GL_TEXTURE_2D);
+    water.set_program(&water_shader, [&](GLuint program) {
+        glUniform1fv(
+                glGetUniformLocation(program, "elapsed_time_s"),
+                1,
+                &elapsed_time_s);
+        glUniform1fv(
+                glGetUniformLocation(program, "wave_sharpness"),
+                1,
+                &waveSharpness);
+    });
     water.get_transform().Translate({-waterHeight / 2, 0.f, -waterWidth / 2});
 
     glClearDepthf(1.0f);
@@ -236,6 +253,7 @@ edaf80::Assignment4::run()
         if(opened) {
             ImGui::Checkbox("Pause animation", &pause_animation);
             ImGui::Checkbox("Use orbit camera", &use_orbit_camera);
+            ImGui::SliderFloat("Wave steepness", &waveSharpness, 0.0f, 1.0f);
             ImGui::Separator();
             auto const cull_mode_changed =
                     bonobo::uiSelectCullMode("Cull mode", cull_mode);

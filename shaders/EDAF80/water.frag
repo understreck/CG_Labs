@@ -1,11 +1,17 @@
-#version 410
+#version 420
+
+uniform sampler2D normals;
 
 in VS_OUT {
-    vec2 pos;
+    vec2 texCoords;
+    mat3 BTN;
 } fs_in;
 
 out vec4 frag_color;
 
 void main() {
-    frag_color = vec4(normalize(fs_in.pos), 0.0, 1.0);
+    frag_color = vec4(
+            normalize(fs_in.BTN * texture(normals, fs_in.texCoords).xyz),
+            1.0
+    );
 }
