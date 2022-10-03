@@ -247,8 +247,8 @@ parametric_shapes::createSphere(
         auto const phiOffset = phiStep;
         auto const phi       = phiOffset + phiStep * lat;
 
-        auto const xTextStep  = 1.f / longitudeEdgeCount;
-        auto const xTexOffset = xTextStep / 2.f;
+        auto const xTextStep  = 1.f / longitude_split_count;
+        //auto const xTexOffset = xTextStep / 2.f;
         auto const yTexStep   = 1.f / latitude_split_count;
 
         auto const edgeOffset = 2 * edgesPerPole + longitudeEdgeCount * lat;
@@ -265,7 +265,7 @@ parametric_shapes::createSphere(
             normals[edgeOffset + lon]   = glm::cross(tangent, binormal);
 
             texCoords[edgeOffset + lon] = {
-                    xTexOffset + xTextStep * lon,
+                    xTextStep * lon,
                     yTexStep * lat,
                     0.f};
             // std::cerr << "Edge: " << edge << " : ";
