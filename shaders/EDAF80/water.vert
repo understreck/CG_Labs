@@ -1,6 +1,6 @@
 #version 420
 
-#define NUM_WAVES 2
+#define NUM_WAVES 7
 
 layout (location = 0) in vec3 vertex;
 
@@ -21,8 +21,13 @@ struct Wave {
 };
 
 Wave waves[NUM_WAVES] = {
-    {1.0, {-1.0, 0.0}, 0.2, 0.5},
-    {0.5, {-0.7, 0.7}, 0.4, 1.3}
+    {0.1, {2.7, 0.7}, 0.4, 0.5},
+    {0.1, {0.3, 0.7}, 0.4, 0.1},
+    {0.1, {0.7, -0.7}, 0.4, 2.2},
+    {0.1, {-0.2, -0.7}, 0.4, 3.5},
+    {0.1, {0.8, 0.4}, 0.4, 1.5},
+    {0.1, {-0.3, 2.3}, 0.4, 0.5},
+    {0.1, {-0.7, 0.7}, 0.4, 1.3}
 };
 
 float
@@ -40,8 +45,9 @@ trig_term(in int i) {
 }
 
 out VS_OUT {
-    vec2 texCoords;
     mat3 BTN;
+    vec3 pos;
+    vec2 texCoords;
 } vs_out;
 
 #define B vs_out.BTN[0]
@@ -52,8 +58,8 @@ void main()
 {
     vec3 pos = vertex;
     B = vec3(1.0, 0.0, 0.0);
+    N = vec3(0.0, -1.0, 0.0);
     T = vec3(0.0, 0.0, 1.0);
-    N = vec3(0.0, 1.0, 0.0);
 
     for(int i = 0; i < NUM_WAVES; ++i) {
         float trig = trig_term(i);
@@ -63,7 +69,7 @@ void main()
 
         pos.x += _common * waves[i].direction.x;
         pos.z += _common * waves[i].direction.y;
-        pos.y += waves[i].amplitude * sin(trig);
+        pos.y -= waves[i].amplitude * sin(trig);
 
         float wa = waves[i].frequency * waves[i].amplitude;
 
@@ -93,19 +99,24 @@ void main()
 
         B.x -= qwas * xx;
         B.z -= qwas * yy;
-        B.y += xwac;
+        B.y -= xwac;
+        normalize(B);
 
         T.x -= qwas * xy;
         T.z -= qwas * yy;
-        T.y += ywac;
+        T.y -= ywac;
+        normalize(T);
 
         N.x -= xwac;
         N.z -= ywac;
-        N.y -= qwas;
+        N.y += qwas;
+        normalize(N);
     }
 
     vs_out.texCoords = vec2(pos.x / width, pos.z / height);
-
+    vec4 worldPos = vertex_model_to_world * vec4(pos, 1.0);
+    
+    vs_out.pos = worldPos.xyz;
     gl_Position =
-        vertex_world_to_clip * vertex_model_to_world * vec4(pos, 1.0);
+        vertex_world_to_clip * worldPos;
 }

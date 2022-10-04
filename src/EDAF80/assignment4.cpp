@@ -145,30 +145,33 @@ edaf80::Assignment4::run()
     }
 
     auto waveSharpness = 0.2f;
-    auto water         = Node{};
+
+    auto const setWaterUniforms = [&elapsed_time_s,
+                                   &waveSharpness,
+                                   &mCamera = this->mCamera,
+                                   waterHeight,
+                                   waterWidth](GLuint program) {
+        glUniform1fv(
+                glGetUniformLocation(program, "elapsed_time_s"),
+                1,
+                &elapsed_time_s);
+        glUniform1fv(
+                glGetUniformLocation(program, "wave_sharpness"),
+                1,
+                &waveSharpness);
+        glUniform1fv(glGetUniformLocation(program, "height"), 1, &waterHeight);
+        glUniform1fv(glGetUniformLocation(program, "width"), 1, &waterWidth);
+        glUniform3fv(
+                glGetUniformLocation(program, "camera_position"),
+                1,
+                glm::value_ptr(mCamera.mWorld.GetTranslation()));
+    };
+
+    auto water = Node{};
     water.set_geometry(quadMesh);
     water.add_texture("normal_texture", water_texture, GL_TEXTURE_2D);
     water.add_texture("skybox_texture", skybox_texture, GL_TEXTURE_CUBE_MAP);
-    water.set_program(
-            &water_shader,
-            [&, waterHeight, waterWidth](GLuint program) {
-                glUniform1fv(
-                        glGetUniformLocation(program, "elapsed_time_s"),
-                        1,
-                        &elapsed_time_s);
-                glUniform1fv(
-                        glGetUniformLocation(program, "wave_sharpness"),
-                        1,
-                        &waveSharpness);
-                glUniform1fv(
-                        glGetUniformLocation(program, "height"),
-                        1,
-                        &waterHeight);
-                glUniform1fv(
-                        glGetUniformLocation(program, "width"),
-                        1,
-                        &waterWidth);
-            });
+    water.set_program(&water_shader, setWaterUniforms);
     water.get_transform().Translate({-waterHeight / 2, 0.f, -waterWidth / 2});
 
     glClearDepthf(1.0f);
