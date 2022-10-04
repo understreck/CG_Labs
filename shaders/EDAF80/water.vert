@@ -3,13 +3,15 @@
 #define NUM_WAVES 2
 
 layout (location = 0) in vec3 vertex;
-layout (location = 2) in vec3 texcoords;
 
 uniform mat4 vertex_model_to_world;
 uniform mat4 vertex_world_to_clip;
 
 uniform float elapsed_time_s;
-uniform float wave_sharpness = 0.2;
+uniform float wave_sharpness;
+
+uniform float width;
+uniform float height;
 
 struct Wave {
     float amplitude;
@@ -48,7 +50,6 @@ out VS_OUT {
 
 void main()
 {
-    vs_out.texCoords = texcoords.xy;
     vec3 pos = vertex;
     B = vec3(1.0, 0.0, 0.0);
     T = vec3(0.0, 0.0, 1.0);
@@ -102,6 +103,8 @@ void main()
         N.z -= ywac;
         N.y -= qwas;
     }
+
+    vs_out.texCoords = vec2(pos.x / width, pos.z / height);
 
     gl_Position =
         vertex_world_to_clip * vertex_model_to_world * vec4(pos, 1.0);

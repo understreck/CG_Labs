@@ -21,7 +21,6 @@ parametric_shapes::createQuad(
     auto const edgeCount = lines * columns;
 
     auto vertices  = std::vector<glm::vec3>{lines * columns};
-    auto texcoords = std::vector<glm::vec3>{lines * columns};
     for(auto line = 0u; line < lines; ++line) {
         auto const yStep  = height / float(lines - 1);
         auto const y      = yStep * line;
@@ -32,7 +31,6 @@ parametric_shapes::createQuad(
             auto const x     = xStep * column;
 
             vertices[offset + column]  = {x, 0.f, y};
-            texcoords[offset + column] = {x / width, y / height, 0.0};
         }
     }
 
@@ -88,18 +86,13 @@ parametric_shapes::createQuad(
 
     auto const vertSize =
             vertices.size() * sizeof(decltype(vertices)::value_type);
-    auto const texSize =
-            texcoords.size() * sizeof(decltype(texcoords)::value_type);
-
-    auto const bufferSize = vertSize + texSize;
     glBufferData(
             GL_ARRAY_BUFFER,
-            bufferSize,
-            /* where is the data stored on the CPU? */ nullptr,
+            vertSize,
+            /* where is the data stored on the CPU? */ vertices.data(),
             /* inform OpenGL that the data is modified once, but used often */
             GL_STATIC_DRAW);
 
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vertSize, vertices.data());
     glEnableVertexAttribArray(
             static_cast<GLuint>(bonobo::shader_bindings::vertices));
     glVertexAttribPointer(
@@ -110,16 +103,6 @@ parametric_shapes::createQuad(
             0,
             reinterpret_cast<GLvoid const*>(0));
 
-    glBufferSubData(GL_ARRAY_BUFFER, vertSize, texSize, texcoords.data());
-    glEnableVertexAttribArray(
-            static_cast<GLuint>(bonobo::shader_bindings::texcoords));
-    glVertexAttribPointer(
-            static_cast<GLuint>(bonobo::shader_bindings::texcoords),
-            glm::vec3::length(),
-            GL_FLOAT,
-            GL_FALSE,
-            0,
-            reinterpret_cast<GLvoid const*>(vertSize));
     // Now, let's allocate a second one for the indices.
     //
     // Have the buffer's name stored into `data.ibo`.
