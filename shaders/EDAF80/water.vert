@@ -1,6 +1,6 @@
 #version 420
 
-#define NUM_WAVES 7
+#define NUM_WAVES 9
 
 layout (location = 0) in vec3 vertex;
 
@@ -21,13 +21,16 @@ struct Wave {
 };
 
 Wave waves[NUM_WAVES] = {
-    {0.1, {2.7, 0.7}, 0.4, 0.5},
-    {0.1, {0.3, 0.7}, 0.4, 0.1},
-    {0.1, {0.7, -0.7}, 0.4, 2.2},
-    {0.1, {-0.2, -0.7}, 0.4, 3.5},
-    {0.1, {0.8, 0.4}, 0.4, 1.5},
-    {0.1, {-0.3, 2.3}, 0.4, 0.5},
-    {0.1, {-0.7, 0.7}, 0.4, 1.3}
+    {0.2, {0.7, 0.7}, 0.1, 0.5},
+    {0.15, {0.4, 0.5}, 0.2, 3.5},
+    {0.21, {0.55, 0.7}, 0.3, 1.5},
+    {0.25, {0.65, 0.35}, 0.4, 2.5},
+    {0.4, {1.0 / 3.0, 0.44}, 0.5, 1.5},
+    {0.11, {0.1, 0.3}, 0.6, 4.5},
+    {1.00, {1.0, 1.0}, 0.10, 2.5},
+    {0.15, {0.1, 0.7}, 0.1, 1.0},
+    {0.15, {0.7, 0.1}, 0.2, 1.3},
+    //{0.22, {0.2, 0.2}, 2, 1.5},
 };
 
 float
@@ -45,20 +48,20 @@ trig_term(in int i) {
 }
 
 out VS_OUT {
-    mat3 BTN;
+    mat3 BNT;
     vec3 pos;
     vec2 texCoords;
 } vs_out;
 
-#define B vs_out.BTN[0]
-#define T vs_out.BTN[1]
-#define N vs_out.BTN[2]
+#define B vs_out.BNT[0]
+#define N vs_out.BNT[1]
+#define T vs_out.BNT[2]
 
 void main()
 {
     vec3 pos = vertex;
     B = vec3(1.0, 0.0, 0.0);
-    N = vec3(0.0, -1.0, 0.0);
+    N = vec3(0.0, 1.0, 0.0);
     T = vec3(0.0, 0.0, 1.0);
 
     for(int i = 0; i < NUM_WAVES; ++i) {
@@ -99,23 +102,23 @@ void main()
 
         B.x -= qwas * xx;
         B.z -= qwas * yy;
-        B.y -= xwac;
-        normalize(B);
-
-        T.x -= qwas * xy;
-        T.z -= qwas * yy;
-        T.y -= ywac;
-        normalize(T);
+        B.y += xwac;
+        B = normalize(B);
 
         N.x -= xwac;
         N.z -= ywac;
-        N.y += qwas;
-        normalize(N);
+        N.y -= qwas;
+        N = normalize(N);
+
+        T.x -= qwas * xy;
+        T.z -= qwas * yy;
+        T.y += ywac;
+        T = normalize(T);
     }
 
     vs_out.texCoords = vec2(pos.x / width, pos.z / height);
     vec4 worldPos = vertex_model_to_world * vec4(pos, 1.0);
-    
+
     vs_out.pos = worldPos.xyz;
     gl_Position =
         vertex_world_to_clip * worldPos;
