@@ -158,7 +158,7 @@ edaf80::Assignment3::run()
         return;
     }
 
-    auto const commonCubemapPath = std::string{"res/vec3(0.2, 0.2, 0.8)cubemaps/NissiBeach2/"};
+    auto const commonCubemapPath = std::string{"res/cubemaps/NissiBeach2/"};
     auto const skybox_texture    = bonobo::loadTextureCubeMap(
             commonCubemapPath + "posx.jpg",
             commonCubemapPath + "negx.jpg",

@@ -25,15 +25,19 @@ void main() {
 
     vec3 skyboxPos = normalize(reflect(camToPos, normal));
 
-    float amountReflected = pow(abs(dot(-lightVec, normal)), 32.0);
-    vec3 colour = vec3(0.1, 0.1, 0.5);
+    float diffuseReflected = max(dot(-lightVec, normal), 0.0);
+    float specularReflected = pow(max(dot(-camToPos, normal), 0.0), 16.0);
+    vec3 surfaceColour = vec3(0.2, 0.2, 0.9);
+    vec3 ambientColour = vec3(0.1);
 
     vec3 skybox = texture(skybox_texture, skyboxPos).xyz;
     frag_color = vec4(
-            skybox * 0.3 +
+            surfaceColour * diffuseReflected +
+            surfaceColour * specularReflected
+            //skybox * 0.5,
             //vec3(1.0) * amountReflected,
-            (colour + (vec3(1.0) - colour) * amountReflected * 0.4) * 0.7,
+            //(colour + (vec3(1.0) - colour) * amountReflected * 0.4) * 0.7,
             //skybox,
-            1.0
+            ,1.0
     );
 }

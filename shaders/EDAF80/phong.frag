@@ -14,6 +14,8 @@ uniform vec3 specular_colour;
 uniform float shininess_value;
 uniform int   use_normal_mapping;
 
+uniform mat4 normal_model_to_world;
+
 in VS_OUT {
     vec2 texcoord;
     vec3 vertex;
@@ -36,6 +38,8 @@ void main()
     vec3 normal = use_normal_mapping== 1?
     normalize(fs_in.TBN * normalTex) :
     fs_in.TBN[2];
+
+    normal = vec3(normal_model_to_world * vec4(normal, 0.0)).xyz;
 
     vec3 diffuse =
         clamp(dot(normal, lightDir), 0.0, 1.0) *
