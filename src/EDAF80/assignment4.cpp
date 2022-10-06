@@ -144,10 +144,10 @@ edaf80::Assignment4::run()
         return;
     }
 
-    auto waveSharpness = 0.2f;
+    auto fresnelFactor = 1.0f;
 
     auto const setWaterUniforms = [&elapsed_time_s,
-                                   &waveSharpness,
+                                   &fresnelFactor,
                                    &mCamera = this->mCamera,
                                    waterHeight,
                                    waterWidth](GLuint program) {
@@ -156,15 +156,19 @@ edaf80::Assignment4::run()
                 1,
                 &elapsed_time_s);
         glUniform1fv(
-                glGetUniformLocation(program, "wave_sharpness"),
+                glGetUniformLocation(program, "fresnel_factor"),
                 1,
-                &waveSharpness);
+                &fresnelFactor);
         glUniform1fv(glGetUniformLocation(program, "height"), 1, &waterHeight);
         glUniform1fv(glGetUniformLocation(program, "width"), 1, &waterWidth);
         glUniform3fv(
                 glGetUniformLocation(program, "camera_position"),
                 1,
                 glm::value_ptr(mCamera.mWorld.GetTranslation()));
+        glUniformMatrix4fv(
+                glGetUniformLocation(program, "normal_model_to_world"),
+                1, false,
+                glm::value_ptr(mCamera.GetViewToWorldMatrix()));
     };
 
     auto water = Node{};
@@ -267,7 +271,7 @@ edaf80::Assignment4::run()
         if(opened) {
             ImGui::Checkbox("Pause animation", &pause_animation);
             ImGui::Checkbox("Use orbit camera", &use_orbit_camera);
-            ImGui::SliderFloat("Wave steepness", &waveSharpness, 0.0f, 1.0f);
+            ImGui::SliderFloat("Fresnel factor", &fresnelFactor, 1.0f, 32.0f);
             ImGui::Separator();
             auto const cull_mode_changed =
                     bonobo::uiSelectCullMode("Cull mode", cull_mode);
