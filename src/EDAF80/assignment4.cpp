@@ -144,7 +144,7 @@ edaf80::Assignment4::run()
         return;
     }
 
-    auto fresnelFactor = 1.0f;
+    auto fresnelFactor = 5.0f;
 
     auto const setWaterUniforms = [&elapsed_time_s,
                                    &fresnelFactor,
@@ -271,7 +271,7 @@ edaf80::Assignment4::run()
         if(opened) {
             ImGui::Checkbox("Pause animation", &pause_animation);
             ImGui::Checkbox("Use orbit camera", &use_orbit_camera);
-            ImGui::SliderFloat("Fresnel factor", &fresnelFactor, 1.0f, 32.0f);
+            ImGui::SliderFloat("Fresnel factor", &fresnelFactor, 1.0f, 5.0f);
             ImGui::Separator();
             auto const cull_mode_changed =
                     bonobo::uiSelectCullMode("Cull mode", cull_mode);

@@ -45,10 +45,10 @@ parametric_shapes::createQuad(
             auto const topOffset    = columns * row + column;
             auto const bottomOffset = topOffset + columns;
             auto const index        = topOffset * 2;
-            index_sets[index]       = {topOffset, topOffset + 1, bottomOffset};
+            index_sets[index]       = {topOffset + 1, topOffset, bottomOffset};
             index_sets[index + 1]   = {
-                      topOffset + 1,
                       bottomOffset + 1,
+                      topOffset + 1,
                       bottomOffset};
         }
     }

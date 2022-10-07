@@ -31,38 +31,48 @@ void main() {
     vec3 texNormal = normalize(texNormal0 + texNormal1 + texNormal2);
     vec3 normal = 
         normalize(fs_in.BTN * texNormal);
-        //normalize(fs_in.BTN * vec3(0.0, 0.0, 1.0));
-    normal = vec4(normal_model_to_world * vec4(normal, 0.0)).xyz;
+        //fs_in.BTN * vec3(0.0, 0.0, 1.0);
+    float facingSign = gl_FrontFacing ? 1.0 : -1.0;
+    normal =
+        normalize(vec4(normal_model_to_world * vec4(normal, 0.0)).xyz) *
+        facingSign;
 
     vec3 camToPos = normalize(fs_in.pos - camera_position);
 
-    vec4 deepC = vec4(0.0, 0.0, 0.1, 1.0);
-    vec4 deepS = vec4(0.0, 0.5, 0.5, 1.0);
-    float facing = 1.0 - max(dot(-camToPos, normal), 0.0);
-    vec4 waterC = mix(deepC, deepS, facing);
+    vec4 deepC = gl_FrontFacing ?
+        vec4(0.0, 0.0, 0.1, 1.0) : vec4(0.0, 0.4, 0.4, 1.0);
+    vec4 shallowC = gl_FrontFacing ?
+        vec4(0.0, 0.5, 0.5, 1.0) : vec4(0.0, 0.3, 0.3, 1.0);
+    float facing =
+        1.0 - max(dot(-camToPos, normal), 0.0);
+    vec4 waterC = mix(deepC, shallowC, facing);
 
-    const float refIindexAir = 1.0;
+    const float refIndexAir = 1.0;
     const float refIndexWater = 1.33;
 
     const float airToWater = pow(
-        (refIindexAir - refIndexWater) / (refIindexAir + refIndexWater), 2.0);
+        (refIndexAir - refIndexWater) / (refIndexAir + refIndexWater), 2.0);
     const float waterToAir = pow(
-        (refIndexWater - refIindexAir) / (refIndexWater + refIindexAir), 2.0);
+        (refIndexWater - refIndexAir) / (refIndexWater + refIndexAir), 2.0);
 
     float fresnelAtW = 
         airToWater +
-        (1.0 - airToWater) * pow((1.0 - dot(-camToPos, normal)), 5.0);
+        (1.0 - airToWater) * pow(facing, fresnel_factor);
     float fresnelWtA = 
         waterToAir +
-        (1.0 - waterToAir) * pow((1.0 - dot(-camToPos, normal)), 5.0);
+        (1.0 - waterToAir) * pow(facing, fresnel_factor);
 
     vec3 reflectDir = reflect(camToPos, normal);
     vec4 skyboxReflect = texture(skybox_texture, reflectDir);
-    vec3 refractDir = refract(camToPos, normal, refIindexAir / refIndexWater);
+    vec3 refractDir = refract(
+        camToPos, normal,
+        gl_FrontFacing ?
+            (refIndexAir / refIndexWater) : (refIndexWater / refIndexAir)
+    );
     vec4 skyboxRefract = texture(skybox_texture, refractDir);
 
     frag_color =
         waterC +
-        skyboxReflect * fresnelAtW +
-        skyboxRefract * fresnelWtA;
+        skyboxReflect * (gl_FrontFacing ? fresnelAtW : fresnelWtA) +
+        skyboxRefract * (1.0 - (gl_FrontFacing ? fresnelAtW : fresnelWtA));
 }
