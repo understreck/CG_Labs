@@ -1,6 +1,7 @@
 #include "CelestialBody.hpp"
 
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_common.hpp>
 #include <glm/fwd.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -46,11 +47,13 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
   auto orbitTilt = glm::rotate(glm::mat4{1.0f}, _body.orbit.inclination,
                                glm::vec3{0.0f, 0.0f, 1.0f});
 
-  glm::mat4 world = orbitTilt * orbitRotation * orbitTranslation * scale *
-                    axisTilt * axisRotation;
+  glm::mat4 world =
+      parent_transform * orbitTilt * orbitRotation * orbitTranslation;
+  glm::mat4 model =
+      scale * glm::inverse(orbitRotation) * axisTilt * axisRotation;
 
   if (show_basis) {
-    bonobo::renderBasis(1.0f, 2.0f, view_projection, world);
+    bonobo::renderBasis(1.0f, 2.0f, view_projection, world * model);
   }
 
   // Note: The second argument of `node::render()` is supposed to be the
@@ -59,9 +62,9 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
   // manage all the local transforms ourselves, so the internal transform
   // of the node is just the identity matrix and we can forward the whole
   // world matrix.
-  _body.node.render(view_projection, world);
+  _body.node.render(view_projection, world * model);
 
-  return parent_transform;
+  return world * axisTilt;
 }
 
 void CelestialBody::add_child(CelestialBody *child) {

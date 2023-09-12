@@ -7,10 +7,12 @@
 #include "core/node.hpp"
 #include "parametric_shapes.hpp"
 
+#include <glm/fwd.hpp>
 #include <imgui.h>
 
 #include <clocale>
 #include <cstdlib>
+#include <stack>
 
 int main() {
   std::setlocale(LC_ALL, "");
@@ -279,6 +281,7 @@ int main() {
     //
     // Traverse the scene graph and render all nodes
     //
+
     struct CelestialBodyRef {
       CelestialBody *body;
       glm::mat4 parent_transform;
@@ -286,11 +289,22 @@ int main() {
     // TODO: Replace this explicit rendering of the Earth and Moon
     // with a traversal of the scene graph and rendering of all its
     // nodes.
-    earth.render(animation_delta_time_us, camera.GetWorldToClipMatrix(),
-                 glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f)),
-                 show_basis);
-    // moon.render(animation_delta_time_us, camera.GetWorldToClipMatrix(),
-    // glm::mat4(1.0f), show_basis);
+
+    auto bodies = std::stack<CelestialBodyRef>{
+        {CelestialBodyRef{&earth, glm::mat4{1.0f}}}};
+
+    while (not bodies.empty()) {
+      auto &&top = bodies.top();
+      bodies.pop();
+
+      auto transform =
+          top.body->render(delta_time_us, camera.GetWorldToClipMatrix(),
+                           top.parent_transform, show_basis);
+
+      for (auto *child : top.body->get_children()) {
+        bodies.push({child, transform});
+      }
+    }
 
     //
     // Add controls to the scene.
