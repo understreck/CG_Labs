@@ -345,9 +345,9 @@ int main() {
       auto &&top = bodies.top();
       bodies.pop();
 
-      auto transform =
-          top.body->render(delta_time_us, camera.GetWorldToClipMatrix(),
-                           top.parent_transform, show_basis);
+      auto transform = top.body->render(animation_delta_time_us,
+                                        camera.GetWorldToClipMatrix(),
+                                        top.parent_transform, show_basis);
 
       for (auto *child : top.body->get_children()) {
         bodies.push({child, transform});
