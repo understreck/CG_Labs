@@ -3,6 +3,7 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/fwd.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/trigonometric.hpp>
@@ -63,6 +64,15 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
   // of the node is just the identity matrix and we can forward the whole
   // world matrix.
   _body.node.render(view_projection, world * model);
+
+  if (_ring.is_set) {
+    _ring.node.render(
+        view_projection,
+        world *
+            glm::rotate(glm::mat4{1.0f}, glm::half_pi<float>(),
+                        glm::vec3(1.0f, 0.0f, 0.0f)) *
+            glm::scale(glm::mat4{1.0f}, glm::vec3{_ring.scale, 0.0f}));
+  }
 
   return world * axisTilt;
 }

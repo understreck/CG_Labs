@@ -235,6 +235,9 @@ int main() {
   saturn.set_spin(saturn_spin);
   saturn.set_orbit(saturn_orbit);
 
+  saturn.set_ring(saturn_ring_shape, &celestial_ring_shader,
+                  saturn_ring_texture);
+
   CelestialBody uranus(sphere, &celestial_body_shader, uranus_texture);
   uranus.set_scale(uranus_scale);
   uranus.set_spin(uranus_spin);
