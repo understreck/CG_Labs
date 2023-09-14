@@ -127,7 +127,7 @@ int main() {
   OrbitConfiguration const venus_orbit{3.0f, glm::radians(-3.9f),
                                        glm::two_pi<float>() / 12.0f};
 
-  glm::vec3 const earth_scale{1.0f};
+  glm::vec3 const earth_scale{0.05f};
   SpinConfiguration const earth_spin{glm::radians(-23.0f),
                                      glm::two_pi<float>() / 3.0f};
   OrbitConfiguration const earth_orbit{4.0f, glm::radians(-7.2f),
@@ -199,16 +199,64 @@ int main() {
   //
   // Set up the celestial bodies.
   //
+  CelestialBody mercury(sphere, &celestial_body_shader, mercury_texture);
+  mercury.set_scale(mercury_scale);
+  mercury.set_spin(mercury_spin);
+  mercury.set_orbit(mercury_orbit);
+
+  CelestialBody venus(sphere, &celestial_body_shader, venus_texture);
+  venus.set_scale(venus_scale);
+  venus.set_spin(venus_spin);
+  venus.set_orbit(venus_orbit);
+
   CelestialBody moon(sphere, &celestial_body_shader, moon_texture);
-  moon.set_scale(glm::vec3(0.3f));
+  moon.set_scale(moon_scale);
   moon.set_spin(moon_spin);
-  moon.set_orbit({1.5f, glm::radians(-66.0f), glm::two_pi<float>() / 1.3f});
+  moon.set_orbit(moon_orbit);
 
   CelestialBody earth(sphere, &celestial_body_shader, earth_texture);
   earth.set_scale(earth_scale);
   earth.set_spin(earth_spin);
-  earth.set_orbit({-2.5f, glm::radians(45.0f), glm::two_pi<float>() / 10.0f});
+  earth.set_orbit(earth_orbit);
   earth.add_child(&moon);
+
+  CelestialBody mars(sphere, &celestial_body_shader, mars_texture);
+  mars.set_scale(mars_scale);
+  mars.set_spin(mars_spin);
+  mars.set_orbit(mars_orbit);
+
+  CelestialBody jupiter(sphere, &celestial_body_shader, jupiter_texture);
+  jupiter.set_scale(jupiter_scale);
+  jupiter.set_spin(jupiter_spin);
+  jupiter.set_orbit(jupiter_orbit);
+
+  CelestialBody saturn(sphere, &celestial_body_shader, saturn_texture);
+  saturn.set_scale(saturn_scale);
+  saturn.set_spin(saturn_spin);
+  saturn.set_orbit(saturn_orbit);
+
+  CelestialBody uranus(sphere, &celestial_body_shader, uranus_texture);
+  uranus.set_scale(uranus_scale);
+  uranus.set_spin(uranus_spin);
+  uranus.set_orbit(uranus_orbit);
+
+  CelestialBody neptune(sphere, &celestial_body_shader, neptune_texture);
+  neptune.set_scale(neptune_scale);
+  neptune.set_spin(neptune_spin);
+  neptune.set_orbit(neptune_orbit);
+
+  CelestialBody sun(sphere, &celestial_body_shader, sun_texture);
+  sun.set_scale(sun_scale);
+  sun.set_spin(sun_spin);
+
+  sun.add_child(&mercury);
+  sun.add_child(&venus);
+  sun.add_child(&earth);
+  sun.add_child(&mars);
+  sun.add_child(&jupiter);
+  sun.add_child(&saturn);
+  sun.add_child(&uranus);
+  sun.add_child(&neptune);
 
   //
   // Define the colour and depth used for clearing.
@@ -290,8 +338,8 @@ int main() {
     // with a traversal of the scene graph and rendering of all its
     // nodes.
 
-    auto bodies = std::stack<CelestialBodyRef>{
-        {CelestialBodyRef{&earth, glm::mat4{1.0f}}}};
+    auto bodies =
+        std::stack<CelestialBodyRef>{{CelestialBodyRef{&sun, glm::mat4{1.0f}}}};
 
     while (not bodies.empty()) {
       auto &&top = bodies.top();
