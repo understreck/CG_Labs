@@ -46,7 +46,7 @@ edaf80::Assignment2::~Assignment2() { bonobo::deinit(); }
 
 void edaf80::Assignment2::run() {
   // Load the sphere geometry
-  auto const shape = parametric_shapes::createSphere(0.25f, 4.f, 1.f);
+  auto const shape = parametric_shapes::createSphere(0.25f, 20.f, 20.f);
   if (shape.vao == 0u)
     return;
 
