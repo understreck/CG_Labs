@@ -46,7 +46,7 @@ edaf80::Assignment2::~Assignment2() { bonobo::deinit(); }
 
 void edaf80::Assignment2::run() {
   // Load the sphere geometry
-  auto const shape = parametric_shapes::createQuad(0.25f, 0.15f);
+  auto const shape = parametric_shapes::createSphere(0.25f, 4.f, 1.f);
   if (shape.vao == 0u)
     return;
 
@@ -148,6 +148,7 @@ void edaf80::Assignment2::run() {
 
   auto const control_point_sphere =
       parametric_shapes::createSphere(0.1f, 10u, 10u);
+
   std::array<glm::vec3, 9> control_point_locations = {
       glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(1.0f, 1.8f, 1.0f),
       glm::vec3(2.0f, 1.2f, 2.0f),    glm::vec3(3.0f, 3.0f, 3.0f),

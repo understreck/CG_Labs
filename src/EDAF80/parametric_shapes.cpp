@@ -1,11 +1,13 @@
 #include "parametric_shapes.hpp"
 #include "core/Log.h"
+#include "core/helpers.hpp"
 
 #include <glm/glm.hpp>
 
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <glm/gtc/constants.hpp>
 #include <iostream>
 #include <vector>
 
@@ -128,9 +130,114 @@ bonobo::mesh_data
 parametric_shapes::createSphere(float const radius,
                                 unsigned int const longitude_split_count,
                                 unsigned int const latitude_split_count) {
+  auto const edgesPerPole = longitude_split_count;
+  auto const longitudeEdgeCount = longitude_split_count + 1;
+  auto const middleEdgeCount = longitudeEdgeCount * latitude_split_count;
+  auto const edgeCount = middleEdgeCount + edgesPerPole * 2;
 
-  //! \todo Implement this function
-  return bonobo::mesh_data();
+  // NOTE: Generate vertices
+  auto vertices = std::vector<glm::vec3>{};
+  vertices.reserve(edgeCount);
+
+  // NOTE: South pole vertices
+  for (auto i = 0u; i < edgesPerPole; i++) {
+    vertices.push_back({0.0f, -radius, 0.0f});
+  }
+
+  // NOTE: Middle vertices
+  auto const phiStep = glm::pi<float>() / (latitude_split_count + 1);
+  for (auto latitude = 0u; latitude < latitude_split_count; latitude++) {
+    auto const thetaStep = glm::two_pi<float>() / longitude_split_count;
+
+    for (auto longitude = 0u; longitude < longitudeEdgeCount; longitude++) {
+      auto const theta = thetaStep * longitude;
+      auto const phi = phiStep * (latitude + 1);
+
+      vertices.push_back({radius * std::sin(theta) * std::sin(phi),
+                          -radius * std::cos(phi),
+                          radius * std::cos(theta) * std::sin(phi)});
+    }
+  }
+
+  // NOTE: North pole vertices
+  for (auto i = 0u; i < edgesPerPole; i++) {
+    vertices.push_back({0.0f, radius, 0.0f});
+  }
+
+  // NOTE: Generate vertex index sets
+  auto const trianglesPerPole = edgesPerPole;
+  auto const middleTriangleCount =
+      (latitude_split_count - 1) * longitudeEdgeCount * 2;
+  auto const triangleCount = trianglesPerPole * 2 + middleTriangleCount;
+
+  auto vertexIndices = std::vector<glm::uvec3>{};
+  vertexIndices.reserve(triangleCount);
+
+  // NOTE: South pole triangle index sets
+  for (auto triangle = 0u; triangle < trianglesPerPole; triangle++) {
+    auto const bottomOffset = edgesPerPole;
+    auto const top = triangle;
+    auto const bottomLeft = bottomOffset + triangle;
+    auto const bottomRight = bottomLeft + 1;
+    vertexIndices.push_back({top, bottomLeft, bottomRight});
+  }
+
+  // NOTE: Middle triangle index sets
+  for (auto row = 0u; row < (latitude_split_count - 1); row++) {
+    auto const topOffset = edgesPerPole + 1 + (longitudeEdgeCount * row);
+    auto const bottomOffset = topOffset - 1 + longitudeEdgeCount;
+
+    for (auto longitude = 0u; longitude < longitude_split_count; longitude++) {
+      auto topRight = topOffset + longitude;
+      auto topLeft = topRight - 1;
+      auto bottomLeft = bottomOffset + longitude;
+      auto bottomRight = bottomLeft + 1;
+
+      vertexIndices.push_back({topRight, topLeft, bottomLeft});
+      vertexIndices.push_back({topRight, bottomLeft, bottomRight});
+    }
+  }
+
+  // NOTE: North pole triangle index sets
+  for (auto triangle = 0u; triangle < trianglesPerPole; triangle++) {
+    auto const bottomOffset = edgeCount - edgesPerPole;
+    auto const topOffset = bottomOffset - longitudeEdgeCount;
+
+    auto const bottom = bottomOffset + triangle;
+    auto const topLeft = topOffset + triangle;
+    auto const topRight = topLeft + 1;
+    vertexIndices.push_back({bottom, topRight, topLeft});
+  }
+
+  auto data = bonobo::mesh_data{};
+
+  glGenVertexArrays(1, &data.vao);
+  glBindVertexArray(data.vao);
+
+  glGenBuffers(1, &data.bo);
+  glBindBuffer(GL_ARRAY_BUFFER, data.bo);
+
+  glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vertices[0]),
+               vertices.data(), GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::vertices));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::vertices), 3, GL_FLOAT,
+      GL_FALSE, 0, reinterpret_cast<GLvoid const *>(0x0));
+
+  glGenBuffers(1, &data.ibo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data.ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               vertexIndices.size() * sizeof(vertexIndices[0]),
+               vertexIndices.data(), GL_STATIC_DRAW);
+  data.indices_nb = vertexIndices.size() * 3;
+
+  glBindVertexArray(0u);
+  glBindBuffer(GL_ARRAY_BUFFER, 0u);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+  return data;
 }
 
 bonobo::mesh_data
