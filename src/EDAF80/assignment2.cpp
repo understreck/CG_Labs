@@ -16,6 +16,7 @@
 #include <array>
 #include <clocale>
 #include <cstdlib>
+#include <iterator>
 #include <stdexcept>
 
 edaf80::Assignment2::Assignment2(WindowManager &windowManager)
@@ -46,12 +47,12 @@ edaf80::Assignment2::~Assignment2() { bonobo::deinit(); }
 
 void edaf80::Assignment2::run() {
   // Load the sphere geometry
-  auto const shape = parametric_shapes::createSphere(0.25f, 20.f, 20.f);
+  auto const shape = parametric_shapes::createSphere(0.25f, 5.f, 2.f);
   if (shape.vao == 0u)
     return;
 
   // Set up the camera
-  mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 0.0f, 0.5f));
+  mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 1.0f, 9.0f));
   mCamera.mMouseSensitivity = glm::vec2(0.003f);
   mCamera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
 
@@ -177,6 +178,22 @@ void edaf80::Assignment2::run() {
 
   changeCullMode(cull_mode);
 
+  auto followingIndex = 0;
+
+  auto constexpr nextFollowingIndex =
+      [end = control_point_locations.size()](auto index) {
+        return (index + 1) < end ? (index + 1) : 0;
+      };
+  auto constexpr prevFollowingIndex = [last = control_point_locations.size() -
+                                              1](auto index) {
+    return (index - 1) >= 0 ? (index - 1) : last;
+  };
+
+  auto lerpSpeed = 1.0f;
+  auto catmullRomTension = 0.5f;
+  auto catmullRomSpeed = 1.f;
+  auto terpLocation = 0.0f;
+
   while (!glfwWindowShouldClose(window)) {
     auto const nowTime = std::chrono::high_resolution_clock::now();
     auto const deltaTimeUs =
@@ -216,16 +233,33 @@ void edaf80::Assignment2::run() {
     bonobo::changePolygonMode(polygon_mode);
 
     if (interpolate) {
-      //! \todo Interpolate the movement of a shape between various
-      //!        control points.
       if (use_linear) {
-        //! \todo Compute the interpolated position
-        //!       using the linear interpolation.
+        auto to = interpolation::evalLERP(
+            control_point_locations[prevFollowingIndex(followingIndex)],
+            control_point_locations[followingIndex], terpLocation);
+
+        circle_rings.get_transform().SetTranslate(to);
+
+        terpLocation +=
+            std::chrono::duration<float>(deltaTimeUs).count() * lerpSpeed;
       } else {
-        //! \todo Compute the interpolated position
-        //!       using the Catmull-Rom interpolation;
-        //!       use the `catmull_rom_tension`
-        //!       variable as your tension argument.
+        auto to = interpolation::evalCatmullRom(
+            control_point_locations[prevFollowingIndex(followingIndex)],
+            control_point_locations[followingIndex],
+            control_point_locations[nextFollowingIndex(followingIndex)],
+            control_point_locations[nextFollowingIndex(
+                nextFollowingIndex(followingIndex))],
+            catmullRomTension, terpLocation);
+
+        circle_rings.get_transform().SetTranslate(to);
+
+        terpLocation +=
+            std::chrono::duration<float>(deltaTimeUs).count() * catmullRomSpeed;
+      }
+
+      if (terpLocation > 1.f) {
+        terpLocation = 0.f;
+        followingIndex = nextFollowingIndex(followingIndex);
       }
     }
 
