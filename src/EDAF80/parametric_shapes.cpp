@@ -159,6 +159,8 @@ parametric_shapes::createSphere(float const radius,
     normals.push_back(glm::normalize(vertices[vertices.size() - 1]));
     binormals.push_back(glm::normalize(
         glm::vec3{radius * std::sin(theta), 0.0f, radius * std::cos(theta)}));
+
+    textureCoords.push_back({theta / glm::two_pi<float>(), 0.f});
   }
 
   // NOTE: Middle vertices
@@ -184,6 +186,9 @@ parametric_shapes::createSphere(float const radius,
 
       normals.push_back(glm::cross(tangents[tangents.size() - 1],
                                    binormals[binormals.size() - 1]));
+
+      textureCoords.push_back(
+          {theta / glm::two_pi<float>(), phi / glm::pi<float>()});
     }
   }
 
@@ -198,6 +203,8 @@ parametric_shapes::createSphere(float const radius,
     normals.push_back(glm::normalize(vertices[vertices.size() - 1]));
     binormals.push_back(glm::normalize(
         glm::vec3{-radius * std::sin(theta), 0.0f, -radius * std::cos(theta)}));
+
+    textureCoords.push_back({theta / glm::two_pi<float>(), 1.f});
   }
 
   // NOTE: Generate vertex index sets
@@ -265,7 +272,11 @@ parametric_shapes::createSphere(float const radius,
   auto const binormalOffset = normalOffset + normalSize;
   auto const binormalSize = binormals.size() * sizeof(binormals[0]);
 
-  auto const bufferSize = vertexSize + tangentSize + normalSize + binormalSize;
+  auto const textureCoordOffset = binormalOffset + binormalSize;
+  auto const textureCoordSize = textureCoords.size() * sizeof(textureCoords[0]);
+
+  auto const bufferSize =
+      vertexSize + tangentSize + normalSize + binormalSize + textureCoordSize;
 
   glBufferData(GL_ARRAY_BUFFER, bufferSize, 0, GL_STATIC_DRAW);
 
@@ -297,6 +308,15 @@ parametric_shapes::createSphere(float const radius,
   glVertexAttribPointer(
       static_cast<unsigned int>(bonobo::shader_bindings::binormals), 3,
       GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const *>(binormalOffset));
+
+  glBufferSubData(GL_ARRAY_BUFFER, textureCoordOffset, textureCoordSize,
+                  textureCoords.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::texcoords));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::texcoords), 2,
+      GL_FLOAT, GL_FALSE, 0,
+      reinterpret_cast<GLvoid const *>(textureCoordOffset));
 
   glGenBuffers(1, &data.ibo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data.ibo);
