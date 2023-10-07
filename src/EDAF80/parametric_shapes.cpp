@@ -337,8 +337,153 @@ parametric_shapes::createTorus(float const major_radius,
                                float const minor_radius,
                                unsigned int const major_split_count,
                                unsigned int const minor_split_count) {
-  //! \todo (Optional) Implement this function
-  return bonobo::mesh_data();
+  auto const majorEdgeCount = major_split_count + 1;
+  auto const minorEdgeCount = minor_split_count + 1;
+  auto const edgeCount = majorEdgeCount * minorEdgeCount;
+
+  // NOTE: Generate vertices
+  auto vertices = std::vector<glm::vec3>{};
+  vertices.reserve(edgeCount);
+  auto tangents = std::vector<glm::vec3>{};
+  tangents.reserve(edgeCount);
+  auto normals = std::vector<glm::vec3>{};
+  normals.reserve(edgeCount);
+  auto binormals = std::vector<glm::vec3>{};
+  binormals.reserve(edgeCount);
+  auto textureCoords = std::vector<glm::vec2>{};
+  textureCoords.reserve(edgeCount);
+
+  // NOTE: Vertices
+  for (auto minor = 0u; minor < minorEdgeCount; minor++) {
+    auto const phiStep = glm::two_pi<float>() / major_split_count;
+    auto const thetaStep = glm::two_pi<float>() / minor_split_count;
+
+    for (auto major = 0u; major < majorEdgeCount; major++) {
+      auto const phi = phiStep * major;
+      auto const theta = thetaStep * minor;
+
+      vertices.push_back(
+          {(major_radius + minor_radius * std::cos(theta)) * std::cos(phi),
+           (major_radius + minor_radius * std::cos(theta)) * std::sin(phi),
+           -minor_radius * std::sin(theta)});
+
+      tangents.push_back(glm::normalize(
+          glm::vec3{-minor_radius * std::sin(theta) * std::cos(phi),
+                    -minor_radius * std::sin(theta) * std::sin(phi),
+                    -minor_radius * std::cos(theta)}));
+
+      binormals.push_back(glm::normalize(glm::vec3{
+          -(major_radius + minor_radius * std::cos(theta)) * sin(phi),
+          (major_radius + minor_radius * std::cos(theta)) * cos(phi), 0.0f}));
+
+      normals.push_back(glm::cross(tangents[tangents.size() - 1],
+                                   binormals[binormals.size() - 1]));
+
+      textureCoords.push_back(
+          {theta / glm::two_pi<float>(), phi / glm::pi<float>()});
+    }
+  }
+
+  // NOTE: Generate vertex index sets
+  auto const trianglesPerRow = 2 * major_split_count;
+  auto const triangleCount = trianglesPerRow * minor_split_count;
+
+  auto vertexIndices = std::vector<glm::uvec3>{};
+  vertexIndices.reserve(triangleCount);
+
+  // NOTE: Triangle index sets
+  for (auto row = 0u; row < minor_split_count; row++) {
+    auto const topOffset = majorEdgeCount * row;
+    auto const bottomOffset = majorEdgeCount * (row + 1);
+
+    for (auto column = 0u; column < major_split_count; column++) {
+      auto topLeft = topOffset + column;
+      auto topRight = topLeft + 1;
+      auto bottomLeft = bottomOffset + column;
+      auto bottomRight = bottomLeft + 1;
+
+      vertexIndices.push_back({topLeft, bottomLeft, topRight});
+      vertexIndices.push_back({topRight, bottomLeft, bottomRight});
+    }
+  }
+  auto data = bonobo::mesh_data{};
+
+  glGenVertexArrays(1, &data.vao);
+  glBindVertexArray(data.vao);
+
+  glGenBuffers(1, &data.bo);
+  glBindBuffer(GL_ARRAY_BUFFER, data.bo);
+
+  auto const vertexOffset = 0u;
+  auto const vertexSize = vertices.size() * sizeof(vertices[0]);
+
+  auto const tangentOffset = vertexOffset + vertexSize;
+  auto const tangentSize = tangents.size() * sizeof(tangents[0]);
+
+  auto const normalOffset = tangentOffset + tangentSize;
+  auto const normalSize = normals.size() * sizeof(normals[0]);
+
+  auto const binormalOffset = normalOffset + normalSize;
+  auto const binormalSize = binormals.size() * sizeof(binormals[0]);
+
+  auto const textureCoordOffset = binormalOffset + binormalSize;
+  auto const textureCoordSize = textureCoords.size() * sizeof(textureCoords[0]);
+
+  auto const bufferSize =
+      vertexSize + tangentSize + normalSize + binormalSize + textureCoordSize;
+
+  glBufferData(GL_ARRAY_BUFFER, bufferSize, 0, GL_STATIC_DRAW);
+
+  glBufferSubData(GL_ARRAY_BUFFER, vertexOffset, vertexSize, vertices.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::vertices));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::vertices), 3, GL_FLOAT,
+      GL_FALSE, 0, reinterpret_cast<GLvoid const *>(0x0));
+
+  glBufferSubData(GL_ARRAY_BUFFER, tangentOffset, tangentSize, tangents.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::tangents));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::tangents), 3, GL_FLOAT,
+      GL_FALSE, 0, reinterpret_cast<GLvoid const *>(tangentOffset));
+
+  glBufferSubData(GL_ARRAY_BUFFER, normalOffset, normalSize, normals.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::normals));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::normals), 3, GL_FLOAT,
+      GL_FALSE, 0, reinterpret_cast<GLvoid const *>(normalOffset));
+
+  glBufferSubData(GL_ARRAY_BUFFER, binormalOffset, binormalSize,
+                  binormals.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::binormals));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::binormals), 3,
+      GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const *>(binormalOffset));
+
+  glBufferSubData(GL_ARRAY_BUFFER, textureCoordOffset, textureCoordSize,
+                  textureCoords.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::texcoords));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::texcoords), 2,
+      GL_FLOAT, GL_FALSE, 0,
+      reinterpret_cast<GLvoid const *>(textureCoordOffset));
+
+  glGenBuffers(1, &data.ibo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data.ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               vertexIndices.size() * sizeof(vertexIndices[0]),
+               vertexIndices.data(), GL_STATIC_DRAW);
+  data.indices_nb = vertexIndices.size() * 3;
+
+  glBindVertexArray(0u);
+  glBindBuffer(GL_ARRAY_BUFFER, 0u);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+  return data;
 }
 
 bonobo::mesh_data
