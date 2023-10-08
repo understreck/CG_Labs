@@ -490,7 +490,7 @@ bonobo::loadTextureCubeMap(std::string const &posx, std::string const &negx,
   // and `glGenBuffers()` that were used in assignment 2,
   // `glGenTextures()` can create `n` texture objects at once. Here we
   // only one texture object that will contain our whole cube map.
-  glGenTextures(1, /*! \todo fill me */ nullptr);
+  glGenTextures(1, &texture);
   assert(texture != 0u);
 
   // Similarly to vertex arrays and buffers, we first need to bind the

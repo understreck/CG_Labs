@@ -75,6 +75,17 @@ void edaf80::Assignment3::run() {
     return;
   }
 
+  GLuint phong_shader = 0u;
+  program_manager.CreateAndRegisterProgram(
+      "Phong",
+      {{ShaderType::vertex, "EDAF80/phong.vert"},
+       {ShaderType::fragment, "EDAF80/phong.frag"}},
+      phong_shader);
+  if (phong_shader == 0u) {
+    LogError("Failed to load phong shader");
+    return;
+  }
+
   GLuint diffuse_shader = 0u;
   program_manager.CreateAndRegisterProgram(
       "Diffuse",
@@ -143,6 +154,7 @@ void edaf80::Assignment3::run() {
 
   Node skybox;
   skybox.set_geometry(skybox_shape);
+  skybox.add_texture("skybox_texture", skyboxTexture, GL_TEXTURE_CUBE_MAP);
   skybox.set_program(&skybox_shader, skyboxSetUniforms);
 
   auto demo_shape = parametric_shapes::createSphere(1.5f, 40u, 40u);
@@ -157,10 +169,21 @@ void edaf80::Assignment3::run() {
   demo_material.specular = glm::vec3(1.0f, 1.0f, 1.0f);
   demo_material.shininess = 10.0f;
 
+  auto diffuse_texture =
+      bonobo::loadTexture2D("res/textures/leather_red_02_coll1_2k.jpg");
+  auto specular_texture =
+      bonobo::loadTexture2D("res/textures/leather_red_02_rough_2k.jpg");
+  auto normal_texture =
+      bonobo::loadTexture2D("res/textures/leather_red_02_nor_2k.jpg");
+
   Node demo_sphere;
   demo_sphere.set_geometry(demo_shape);
   demo_sphere.set_material_constants(demo_material);
-  demo_sphere.set_program(&fallback_shader, phong_set_uniforms);
+  demo_sphere.set_program(&phong_shader, phong_set_uniforms);
+
+  demo_sphere.add_texture("diffuse_texture", diffuse_texture, GL_TEXTURE_2D);
+  demo_sphere.add_texture("specular_texture", specular_texture, GL_TEXTURE_2D);
+  demo_sphere.add_texture("normal_texture", normal_texture, GL_TEXTURE_2D);
 
   glClearDepthf(1.0f);
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -169,7 +192,7 @@ void edaf80::Assignment3::run() {
   auto lastTime = std::chrono::high_resolution_clock::now();
 
   bool use_orbit_camera = false;
-  std::int32_t demo_sphere_program_index = 0;
+  std::int32_t demo_sphere_program_index = 2;
   auto cull_mode = bonobo::cull_mode_t::disabled;
   auto polygon_mode = bonobo::polygon_mode_t::fill;
   bool show_logs = true;
