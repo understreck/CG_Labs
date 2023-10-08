@@ -46,11 +46,6 @@ edaf80::Assignment2::Assignment2(WindowManager &windowManager)
 edaf80::Assignment2::~Assignment2() { bonobo::deinit(); }
 
 void edaf80::Assignment2::run() {
-  // Load the sphere geometry
-  auto const shape = parametric_shapes::createSphere(0.25f, 50, 50);
-  if (shape.vao == 0u)
-    return;
-
   // Set up the camera
   mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 1.0f, 9.0f));
   mCamera.mMouseSensitivity = glm::vec2(0.003f);
@@ -66,6 +61,17 @@ void edaf80::Assignment2::run() {
       fallback_shader);
   if (fallback_shader == 0u) {
     LogError("Failed to load fallback shader");
+    return;
+  }
+
+  GLuint phong_shader = 0u;
+  program_manager.CreateAndRegisterProgram(
+      "Phong",
+      {{ShaderType::vertex, "EDAF80/phong.vert"},
+       {ShaderType::fragment, "EDAF80/phong.frag"}},
+      phong_shader);
+  if (phong_shader == 0u) {
+    LogError("Failed to load phong shader");
     return;
   }
 
@@ -120,10 +126,6 @@ void edaf80::Assignment2::run() {
                  glm::value_ptr(light_position));
   };
 
-  // Set the default tensions value; it can always be changed at runtime
-  // through the "Scene Controls" window.
-  float catmull_rom_tension = 0.0f;
-
   // Set whether the default interpolation algorithm should be the linear one;
   // it can always be changed at runtime through the "Scene Controls" window.
   bool use_linear = true;
@@ -136,11 +138,45 @@ void edaf80::Assignment2::run() {
   // at runtime through the "Scene Controls" window.
   bool show_control_points = true;
 
-  auto circle_rings = Node();
-  circle_rings.set_geometry(shape);
-  circle_rings.set_program(&fallback_shader, set_uniforms);
-  TRSTransformf &circle_rings_transform_ref = circle_rings.get_transform();
+  bool use_normal_mapping = false;
+  auto camera_position = mCamera.mWorld.GetTranslation();
+  auto const phong_set_uniforms = [&use_normal_mapping, &light_position,
+                                   &camera_position](GLuint program) {
+    glUniform1i(glGetUniformLocation(program, "use_normal_mapping"),
+                use_normal_mapping ? 1 : 0);
+    glUniform3fv(glGetUniformLocation(program, "light_position"), 1,
+                 glm::value_ptr(light_position));
+    glUniform3fv(glGetUniformLocation(program, "camera_position"), 1,
+                 glm::value_ptr(camera_position));
+  };
 
+  auto demo_shape = parametric_shapes::createSphere(0.25f, 40u, 40u);
+  if (demo_shape.vao == 0u) {
+    LogError("Failed to retrieve the mesh for the demo sphere");
+    return;
+  }
+
+  bonobo::material_data demo_material;
+  demo_material.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
+  demo_material.diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
+  demo_material.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+  demo_material.shininess = 10.0f;
+
+  auto diffuse_texture =
+      bonobo::loadTexture2D("res/textures/leather_red_02_coll1_2k.jpg");
+  auto specular_texture =
+      bonobo::loadTexture2D("res/textures/leather_red_02_rough_2k.jpg");
+  auto normal_texture =
+      bonobo::loadTexture2D("res/textures/leather_red_02_nor_2k.jpg");
+
+  Node demo_sphere;
+  demo_sphere.set_geometry(demo_shape);
+  demo_sphere.set_material_constants(demo_material);
+  demo_sphere.set_program(&phong_shader, phong_set_uniforms);
+
+  demo_sphere.add_texture("diffuse_texture", diffuse_texture, GL_TEXTURE_2D);
+  demo_sphere.add_texture("specular_texture", specular_texture, GL_TEXTURE_2D);
+  demo_sphere.add_texture("normal_texture", normal_texture, GL_TEXTURE_2D);
   //! \todo Create a tesselated sphere and a tesselated torus
 
   glClearDepthf(1.0f);
@@ -166,7 +202,7 @@ void edaf80::Assignment2::run() {
 
   auto lastTime = std::chrono::high_resolution_clock::now();
 
-  std::int32_t program_index = 0;
+  std::int32_t program_index = 1;
   float elapsed_time_s = 0.0f;
   auto cull_mode = bonobo::cull_mode_t::disabled;
   auto polygon_mode = bonobo::polygon_mode_t::fill;
@@ -207,6 +243,7 @@ void edaf80::Assignment2::run() {
     glfwPollEvents();
     inputHandler.Advance();
     mCamera.Update(deltaTimeUs, inputHandler);
+    camera_position = mCamera.mWorld.GetTranslation();
     elapsed_time_s += std::chrono::duration<float>(deltaTimeUs).count();
 
     if (inputHandler.GetKeycodeState(GLFW_KEY_F3) & JUST_RELEASED)
@@ -238,7 +275,7 @@ void edaf80::Assignment2::run() {
             control_point_locations[prevFollowingIndex(followingIndex)],
             control_point_locations[followingIndex], terpLocation);
 
-        circle_rings.get_transform().SetTranslate(to);
+        demo_sphere.get_transform().SetTranslate(to);
 
         terpLocation +=
             std::chrono::duration<float>(deltaTimeUs).count() * lerpSpeed;
@@ -251,7 +288,7 @@ void edaf80::Assignment2::run() {
                 nextFollowingIndex(followingIndex))],
             catmullRomTension, terpLocation);
 
-        circle_rings.get_transform().SetTranslate(to);
+        demo_sphere.get_transform().SetTranslate(to);
 
         terpLocation +=
             std::chrono::duration<float>(deltaTimeUs).count() * catmullRomSpeed;
@@ -263,7 +300,7 @@ void edaf80::Assignment2::run() {
       }
     }
 
-    circle_rings.render(mCamera.GetWorldToClipMatrix());
+    demo_sphere.render(mCamera.GetWorldToClipMatrix());
     if (show_control_points) {
       for (auto const &control_point : control_points) {
         control_point.render(mCamera.GetWorldToClipMatrix());
@@ -282,14 +319,15 @@ void edaf80::Assignment2::run() {
       auto selection_result =
           program_manager.SelectProgram("Shader", program_index);
       if (selection_result.was_selection_changed) {
-        circle_rings.set_program(selection_result.program, set_uniforms);
+        demo_sphere.set_program(selection_result.program, set_uniforms);
       }
       ImGui::Separator();
       ImGui::Checkbox("Show control points", &show_control_points);
       ImGui::Checkbox("Enable interpolation", &interpolate);
       ImGui::Checkbox("Use linear interpolation", &use_linear);
-      ImGui::SliderFloat("Catmull-Rom tension", &catmull_rom_tension, 0.0f,
-                         1.0f);
+      ImGui::SliderFloat("LERP speed", &lerpSpeed, 0.0f, 5.0f);
+      ImGui::SliderFloat("Catmull-Rom tension", &catmullRomTension, 0.0f, 1.0f);
+      ImGui::SliderFloat("Catmull-Rom speed", &catmullRomSpeed, 0.0f, 5.0f);
       ImGui::Separator();
       ImGui::Checkbox("Show basis", &show_basis);
       ImGui::SliderFloat("Basis thickness scale", &basis_thickness_scale, 0.0f,

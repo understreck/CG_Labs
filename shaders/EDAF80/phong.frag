@@ -27,7 +27,7 @@ void main() {
 	vec3 diffuse_texture_colour = texture2D(diffuse_texture, fs_in.texcoord).rbg;
 	vec3 specular_texture_colour = texture2D(specular_texture, fs_in.texcoord).rbg;
 	vec3 normal_texture_colour = use_normal_mapping ?
-		normalize(texture2D(normal_texture, fs_in.texcoord).xyz * 2.0 - 1.0) : vec3(0.0, 0.0, 0.0);
+		texture2D(normal_texture, fs_in.texcoord).xyz * 2.0 - 1.0 : vec3(0.0, 0.0, 0.0);
 
 	vec3 fragPosToLight = normalize(light_position - fs_in.fragPos);
 	vec3 fragPosToCamera = normalize(camera_position - fs_in.fragPos);
