@@ -80,10 +80,13 @@ void edaf80::Assignment4::run() {
       parametric_shapes::createQuad(100.f, 100.f, 1000, 1000);
   auto quadNode = Node();
   quadNode.set_geometry(quadShape);
-  quadNode.set_program(&waveShader, [&elapsed_time_s](GLuint program) {
-    glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),
-                elapsed_time_s);
-  });
+  quadNode.set_program(
+      &waveShader, [&elapsed_time_s, &mCamera = this->mCamera](GLuint program) {
+        glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),
+                    elapsed_time_s);
+        glUniform3fv(glGetUniformLocation(program, "cameraPosition"), 1,
+                     glm::value_ptr(mCamera.mWorld.GetTranslation()));
+      });
 
   glClearDepthf(1.0f);
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
