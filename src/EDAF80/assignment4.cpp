@@ -69,6 +69,16 @@ void edaf80::Assignment4::run() {
        {ShaderType::fragment, "EDAF80/waves.frag"}},
       waveShader);
 
+  GLuint skyboxShader = 0u;
+  program_manager.CreateAndRegisterProgram(
+      "Skybox",
+      {{ShaderType::vertex, "EDAF80/skybox.vert"},
+       {ShaderType::fragment, "EDAF80/skybox.frag"}},
+      skyboxShader);
+  if (skyboxShader == 0u) {
+    LogError("Failed to load skybox shader");
+    return;
+  }
   //
   // Todo: Insert the creation of other shader programs.
   //       (Check how it was done in assignment 3.)
@@ -76,17 +86,35 @@ void edaf80::Assignment4::run() {
 
   float elapsed_time_s = 0.0f;
 
+  auto const skyboxTexturePath = std::string{"res/cubemaps/NissiBeach2/"};
+  auto skyboxTexture = bonobo::loadTextureCubeMap(
+      skyboxTexturePath + "posx.jpg", skyboxTexturePath + "negx.jpg",
+      skyboxTexturePath + "posy.jpg", skyboxTexturePath + "negy.jpg",
+      skyboxTexturePath + "posz.jpg", skyboxTexturePath + "negz.jpg");
+
   auto const quadShape =
       parametric_shapes::createQuad(100.f, 100.f, 1000, 1000);
   auto quadNode = Node();
   quadNode.set_geometry(quadShape);
+  quadNode.add_texture("skyboxTexture", skyboxTexture, GL_TEXTURE_CUBE_MAP);
   quadNode.set_program(
-      &waveShader, [&elapsed_time_s, &mCamera = this->mCamera](GLuint program) {
+      &waveShader, [&elapsed_time_s, &camera = mCamera](GLuint program) {
         glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),
                     elapsed_time_s);
         glUniform3fv(glGetUniformLocation(program, "cameraPosition"), 1,
-                     glm::value_ptr(mCamera.mWorld.GetTranslation()));
+                     glm::value_ptr(camera.mWorld.GetTranslation()));
       });
+
+  auto const skyboxShape = parametric_shapes::createSphere(200.f, 100, 100);
+  auto skyboxNode = Node();
+
+  skyboxNode.set_geometry(skyboxShape);
+  skyboxNode.add_texture("skyboxTexture", skyboxTexture, GL_TEXTURE_CUBE_MAP);
+  skyboxNode.set_program(&skyboxShader, [&camera = mCamera](GLuint program) {
+    glUniformMatrix4fv(glGetUniformLocation(program, "camera_translation"), 1,
+                       false,
+                       glm::value_ptr(camera.mWorld.GetTranslationMatrix()));
+  });
 
   glClearDepthf(1.0f);
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -167,6 +195,7 @@ void edaf80::Assignment4::run() {
 
     if (!shader_reload_failed) {
       quadNode.render(mCamera.GetWorldToClipMatrix());
+      skyboxNode.render(mCamera.GetWorldToClipMatrix());
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
