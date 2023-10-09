@@ -62,6 +62,13 @@ void edaf80::Assignment4::run() {
     return;
   }
 
+  GLuint waveShader = 0u;
+  program_manager.CreateAndRegisterProgram(
+      "Waves",
+      {{ShaderType::vertex, "EDAF80/waves.vert"},
+       {ShaderType::fragment, "EDAF80/waves.frag"}},
+      waveShader);
+
   //
   // Todo: Insert the creation of other shader programs.
   //       (Check how it was done in assignment 3.)
@@ -73,7 +80,10 @@ void edaf80::Assignment4::run() {
       parametric_shapes::createQuad(100.f, 100.f, 1000, 1000);
   auto quadNode = Node();
   quadNode.set_geometry(quadShape);
-  quadNode.set_program(&fallback_shader);
+  quadNode.set_program(&waveShader, [&elapsed_time_s](GLuint program) {
+    glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),
+                elapsed_time_s);
+  });
 
   glClearDepthf(1.0f);
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
