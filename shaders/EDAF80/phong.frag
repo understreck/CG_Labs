@@ -20,7 +20,7 @@ in VS_OUT {
 	vec2 texcoord;
 	vec3 fragPos;
 	vec3 normal;
-	mat3 TBN;
+	mat3 TNB;
 } fs_in;
 
 void main() {
@@ -33,7 +33,7 @@ void main() {
 	vec3 fragPosToCamera = normalize(camera_position - fs_in.fragPos);
 
 	vec3 normal = use_normal_mapping ?
-		fs_in.TBN * normal_texture_colour :
+		fs_in.TNB * normal_texture_colour :
 		fs_in.normal;
 
 	frag_color = vec4(

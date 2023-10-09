@@ -13,7 +13,7 @@ out VS_OUT {
 	vec2 texcoord;
 	vec3 fragPos;
 	vec3 normal;
-	mat3 TBN;
+	mat3 TNB;
 } vs_out;
 
 
@@ -22,7 +22,7 @@ void main()
 	vs_out.texcoord = texcoord;
 	vs_out.fragPos 	= (vertex_model_to_world * vec4(vertex, 1.0)).xyz;
 	vs_out.normal 	= normal;
-	vs_out.TBN 			= mat3(tangent, binormal, normal);
+	vs_out.TNB 			= mat3(tangent, normal, binormal);
 
 	gl_Position = vertex_world_to_clip * vertex_model_to_world * vec4(vertex, 1.0);
 }

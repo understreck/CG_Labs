@@ -1,5 +1,6 @@
 #version 420
 layout (location = 0) in vec3 vertex;
+layout (location = 2) in vec2 textureCoord;
 
 #define NUM_WAVES 2
 
@@ -23,8 +24,11 @@ Wave waves[NUM_WAVES] = {
 };
 
 out VS_OUT {
-	vec3 vertex;
+	vec3 tangent;
+	vec3 binormal;
 	vec3 normal;
+	vec3 vertex;
+	vec2 textureCoord;
 } vs_out;
 
 float alpha(vec2 position, vec2 direction, float frequency, float phase) {
@@ -82,8 +86,12 @@ void main()
 			);
 	}
 
-	vs_out.vertex = vec3(vertex_model_to_world * vec4(vertex + waveVertex, 1.0));
+	vs_out.tangent = normalize(vec3(1.0, waveVertex.x, 0.0));
+	vs_out.binormal = normalize(vec3(0.0, waveVertex.z, 1.0));
 	vs_out.normal = normalize(vec3(-waveVertex.x, 1.0, -waveVertex.z));
+
+	vs_out.vertex = vec3(vertex_model_to_world * vec4(vertex + waveVertex, 1.0));
+	vs_out.textureCoord = textureCoord;
 
 	gl_Position = vertex_world_to_clip * vertex_model_to_world * vec4(vertex + waveVertex, 1.0);
 }

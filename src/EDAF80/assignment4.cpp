@@ -92,11 +92,14 @@ void edaf80::Assignment4::run() {
       skyboxTexturePath + "posy.jpg", skyboxTexturePath + "negy.jpg",
       skyboxTexturePath + "posz.jpg", skyboxTexturePath + "negz.jpg");
 
+  auto normalTexture = bonobo::loadTexture2D("res/textures/waves.png");
+
   auto const quadShape =
       parametric_shapes::createQuad(100.f, 100.f, 1000, 1000);
   auto quadNode = Node();
   quadNode.set_geometry(quadShape);
   quadNode.add_texture("skyboxTexture", skyboxTexture, GL_TEXTURE_CUBE_MAP);
+  quadNode.add_texture("normalTexture", normalTexture, GL_TEXTURE_2D);
   quadNode.set_program(
       &waveShader, [&elapsed_time_s, &camera = mCamera](GLuint program) {
         glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),

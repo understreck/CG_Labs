@@ -22,13 +22,19 @@ parametric_shapes::createQuad(float const width, float const height,
 
   auto vertices = std::vector<glm::vec3>{};
   vertices.reserve(rowCount * columnCount);
+  auto textureCoords = std::vector<glm::vec2>{};
+  textureCoords.reserve(rowCount * columnCount);
 
   for (auto row = 0u; row < rowCount; row++) {
     auto const columnStep = width / (columnCount - 1);
     auto const rowStep = height / (rowCount - 1);
 
+    auto const textureStepX = 1.0f / (columnCount - 1);
+    auto const textureStepY = 1.0f / (rowCount - 1);
+
     for (auto column = 0u; column < columnCount; column++) {
       vertices.push_back({columnStep * column, 0.0f, rowStep * row});
+      textureCoords.push_back({textureStepX * column, textureStepY * row});
     }
   }
 
@@ -99,12 +105,33 @@ parametric_shapes::createQuad(float const width, float const height,
   // and therefore bind the buffer to the corresponding target.
   glBindBuffer(GL_ARRAY_BUFFER, data.bo);
 
+  auto vertexOffset = 0u;
+  auto vertexSize = vertices.size() * sizeof(vertices[0]);
+  auto textureCoordOffset = vertexOffset + vertexSize;
+  auto textureCoordSize = textureCoords.size() * sizeof(textureCoords[0]);
+  auto bufferSize = vertexSize + textureCoordSize;
+
   glBufferData(
-      GL_ARRAY_BUFFER, vertices.size() * sizeof(vertices[0]),
-      /* where is the data stored on the CPU? */ vertices.data(),
+      GL_ARRAY_BUFFER, bufferSize,
+      /* where is the data stored on the CPU? */ 0,
       /* inform OpenGL that the data is modified once, but used often */
       GL_STATIC_DRAW);
 
+  glBufferSubData(GL_ARRAY_BUFFER, vertexOffset, vertexSize, vertices.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::vertices));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::vertices), 3, GL_FLOAT,
+      GL_FALSE, 0, reinterpret_cast<GLvoid const *>(0x0));
+
+  glBufferSubData(GL_ARRAY_BUFFER, textureCoordOffset, textureCoordSize,
+                  textureCoords.data());
+  glEnableVertexAttribArray(
+      static_cast<unsigned int>(bonobo::shader_bindings::texcoords));
+  glVertexAttribPointer(
+      static_cast<unsigned int>(bonobo::shader_bindings::texcoords), 2,
+      GL_FLOAT, GL_FALSE, 0,
+      reinterpret_cast<GLvoid const *>(textureCoordOffset));
   // Vertices have been just stored into a buffer, but we still need to
   // tell Vertex Array where to find them, and how to interpret the data
   // within that buffer.
