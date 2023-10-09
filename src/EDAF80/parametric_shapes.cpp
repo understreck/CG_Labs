@@ -2,6 +2,7 @@
 #include "core/Log.h"
 #include "core/helpers.hpp"
 
+#include <cstdio>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/glm.hpp>
 
@@ -16,19 +17,52 @@ bonobo::mesh_data
 parametric_shapes::createQuad(float const width, float const height,
                               unsigned int const horizontal_split_count,
                               unsigned int const vertical_split_count) {
-  auto const vertices = std::array<glm::vec3, 4>{
-      glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(width, 0.0f, 0.0f),
-      glm::vec3(width, height, 0.0f), glm::vec3(0.0f, height, 0.0f)};
+  auto const rowCount = horizontal_split_count + 2;
+  auto const columnCount = vertical_split_count + 2;
 
-  auto const index_sets =
-      std::array<glm::uvec3, 2>{glm::uvec3(0u, 1u, 2u), glm::uvec3(0u, 2u, 3u)};
+  auto vertices = std::vector<glm::vec3>{};
+  vertices.reserve(rowCount * columnCount);
+
+  for (auto row = 0u; row < rowCount; row++) {
+    auto const columnStep = width / (columnCount - 1);
+    auto const rowStep = height / (rowCount - 1);
+
+    for (auto column = 0u; column < columnCount; column++) {
+      vertices.push_back({columnStep * column, 0.0f, rowStep * row});
+    }
+  }
+
+  auto const rowQuadCount = rowCount - 1;
+  auto const columnQuadCount = columnCount - 1;
+  auto const triangleCount = rowQuadCount * columnQuadCount * 2;
+
+  auto indexSets = std::vector<glm::uvec3>{};
+  indexSets.reserve(triangleCount);
+
+  for (auto row = 0u; row < rowQuadCount; row++) {
+    auto const topOffset = columnCount * row;
+    auto const bottomOffset = topOffset + columnCount;
+
+    for (auto column = 0u; column < columnQuadCount; column++) {
+      auto const topLeft = topOffset + column;
+      auto const topRight = topLeft + 1;
+      auto const bottomLeft = bottomOffset + column;
+      auto const bottomRight = bottomLeft + 1;
+
+      /* printf("Top left: %d:{%f, %f}, Top right: %d:{%f, %f}\nBottom left: "
+             "%d:{%f, %f}, Bottom "
+             "right: %d:{%f, %f}\n\n",
+             topLeft, vertices[topLeft][0], vertices[topLeft][1], topRight,
+             vertices[topRight][0], vertices[topRight][1], bottomLeft,
+             vertices[bottomLeft][0], vertices[bottomLeft][1], bottomRight,
+             vertices[bottomRight][0], vertices[bottomRight][1]);
+*/
+      indexSets.push_back({topLeft, bottomLeft, topRight});
+      indexSets.push_back({topRight, bottomLeft, bottomRight});
+    }
+  }
 
   bonobo::mesh_data data;
-
-  if (horizontal_split_count > 0u || vertical_split_count > 0u) {
-    LogError("parametric_shapes::createQuad() does not support tesselation.");
-    return data;
-  }
 
   //
   // NOTE:
@@ -112,12 +146,12 @@ parametric_shapes::createQuad(float const width, float const height,
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data.ibo);
 
   glBufferData(
-      GL_ELEMENT_ARRAY_BUFFER, index_sets.size() * sizeof(index_sets[0]),
-      /* where is the data stored on the CPU? */ index_sets.data(),
+      GL_ELEMENT_ARRAY_BUFFER, indexSets.size() * sizeof(indexSets[0]),
+      /* where is the data stored on the CPU? */ indexSets.data(),
       /* inform OpenGL that the data is modified once, but used often */
       GL_STATIC_DRAW);
 
-  data.indices_nb = index_sets.size() * 3;
+  data.indices_nb = indexSets.size() * 3;
 
   // All the data has been recorded, we can unbind them.
   glBindVertexArray(0u);
