@@ -8,6 +8,8 @@ uniform sampler2D normalTexture;
 uniform vec3 cameraPosition;
 
 uniform float elapsedTime;
+uniform float fresnelFactor;
+uniform bool useNormalMapping;
 
 in VS_OUT {
 	vec3 tangent;
@@ -19,12 +21,20 @@ in VS_OUT {
 
 out vec4 frag_colour;
 
-vec4 colourDeep = vec4(0.0, 0.0, 0.1, 1.0);
-vec4 colourShallow = vec4(0.0, 0.5, 0.5, 1.0);
+const vec4 colourDeep = vec4(0.0, 0.0, 0.1, 1.0);
+const vec4 colourShallow = vec4(0.0, 0.5, 0.5, 1.0);
 
-vec2 normalTextureScale = vec2(8, 4);
+const vec2 normalTextureScale = vec2(8, 4);
 float normalTime = mod(elapsedTime, 100.0);
-vec2 normalSpeed = vec2(-0.05, 0.0);
+const vec2 normalSpeed = vec2(-0.05, 0.0);
+
+const float refractIdxAir 	= 1.00;
+const float refractIdxWater = 1.33;
+
+float fresnel(float refractIdxFrom, float refractIdxTo, float facing, float factor) {
+	float R = pow((refractIdxFrom - refractIdxTo) / (refractIdxFrom + refractIdxTo), 2.0);
+	return R + (1 - R) * pow(facing, factor);
+}
 
 void main()
 {
@@ -44,7 +54,11 @@ void main()
 		normalize(fs_in.tangent), normalize(fs_in.normal), normalize(fs_in.binormal)
 	};
 
-	normal = TNB * normalize(normal);
+	normal = useNormalMapping ?
+	  TNB * normalize(normal) :
+		TNB[1];
+
+	normal = normal * (gl_FrontFacing ? 1.0 : -1.0);
 
 	vec3 fragmentToCamera = normalize(cameraPosition - fs_in.vertex);
 	float facing = 1.0 - max(dot(fragmentToCamera, normal), 0.0);
@@ -53,5 +67,16 @@ void main()
 	vec3 reflection = reflect(-fragmentToCamera, normal);
 	vec4 reflectionColour = texture(skyboxTexture, reflection);
 
-	frag_colour = waterColour + reflectionColour;
+	vec3 refraction = refract(
+		-fragmentToCamera, normal, gl_FrontFacing ?
+			refractIdxAir / refractIdxWater :
+			refractIdxWater / refractIdxAir
+	);
+	vec4 refractionColour = texture(skyboxTexture, refraction);
+
+	float fresnel = gl_FrontFacing ?
+		fresnel(refractIdxAir, refractIdxWater, facing, fresnelFactor) :
+		fresnel(refractIdxWater, refractIdxAir, facing, fresnelFactor);
+
+	frag_colour = waterColour + reflectionColour * fresnel + refractionColour * (1 - fresnel);
 }

@@ -43,7 +43,7 @@ edaf80::Assignment4::~Assignment4() { bonobo::deinit(); }
 
 void edaf80::Assignment4::run() {
   // Set up the camera
-  mCamera.mWorld.SetTranslate(glm::vec3(-40.0f, 14.0f, 6.0f));
+  mCamera.mWorld.SetTranslate(glm::vec3(-0.0f, 50.0f, 0.0f));
   mCamera.mWorld.LookAt(glm::vec3(0.0f));
   mCamera.mMouseSensitivity = glm::vec2(0.003f);
   mCamera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
@@ -85,6 +85,8 @@ void edaf80::Assignment4::run() {
   //
 
   float elapsed_time_s = 0.0f;
+  bool useNormalMapping = true;
+  float fresnelFactor = 5.0f;
 
   auto const skyboxTexturePath = std::string{"res/cubemaps/NissiBeach2/"};
   auto skyboxTexture = bonobo::loadTextureCubeMap(
@@ -98,20 +100,26 @@ void edaf80::Assignment4::run() {
       parametric_shapes::createQuad(100.f, 100.f, 1000, 1000);
   auto quadNode = Node();
   quadNode.set_geometry(quadShape);
+  quadNode.get_transform().Translate({-50.0f, 0.0f, -50.0f});
   quadNode.add_texture("skyboxTexture", skyboxTexture, GL_TEXTURE_CUBE_MAP);
   quadNode.add_texture("normalTexture", normalTexture, GL_TEXTURE_2D);
-  quadNode.set_program(
-      &waveShader, [&elapsed_time_s, &camera = mCamera](GLuint program) {
-        glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),
-                    elapsed_time_s);
-        glUniform3fv(glGetUniformLocation(program, "cameraPosition"), 1,
-                     glm::value_ptr(camera.mWorld.GetTranslation()));
-      });
+  quadNode.set_program(&waveShader, [&elapsed_time_s, &camera = mCamera,
+                                     &useNormalMapping,
+                                     &fresnelFactor](GLuint program) {
+    glUniform1f(glGetUniformLocation(program, "elapsedSeconds"),
+                elapsed_time_s);
+    glUniform3fv(glGetUniformLocation(program, "cameraPosition"), 1,
+                 glm::value_ptr(camera.mWorld.GetTranslation()));
+    glUniform1i(glGetUniformLocation(program, "useNormalMapping"),
+                useNormalMapping);
+    glUniform1f(glGetUniformLocation(program, "fresnelFactor"), fresnelFactor);
+  });
 
   auto const skyboxShape = parametric_shapes::createSphere(200.f, 100, 100);
   auto skyboxNode = Node();
 
   skyboxNode.set_geometry(skyboxShape);
+  skyboxNode.get_transform().Translate({0.0f, -200.0f, 0.0f});
   skyboxNode.add_texture("skyboxTexture", skyboxTexture, GL_TEXTURE_CUBE_MAP);
   skyboxNode.set_program(&skyboxShader, [&camera = mCamera](GLuint program) {
     glUniformMatrix4fv(glGetUniformLocation(program, "camera_translation"), 1,
@@ -210,6 +218,9 @@ void edaf80::Assignment4::run() {
 
     bool opened = ImGui::Begin("Scene Control", nullptr, ImGuiWindowFlags_None);
     if (opened) {
+      ImGui::Checkbox("Normal map waves", &useNormalMapping);
+      ImGui::SliderFloat("Fresnel factor", &fresnelFactor, 0.0, 5.0f);
+      ImGui::Separator();
       ImGui::Checkbox("Pause animation", &pause_animation);
       ImGui::Checkbox("Use orbit camera", &use_orbit_camera);
       ImGui::Separator();
