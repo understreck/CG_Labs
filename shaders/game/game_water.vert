@@ -20,9 +20,11 @@ struct Wave {
 
 uniform Wave mainWave;
 
+uniform vec3 island;
+
 const Wave staticWaves[NUM_WAVES] = {
-	{{-0.5, 0.0}, 0.1, 0.2, 0.5, 2.0},
-	{{-0.7, 0.7}, 0.5, 0.4, 1.3, 2.0}
+	{{-0.5, 0.0}, 0.01, 0.2, 0.5, 2.0},
+	{{-0.7, 0.7}, 0.02, 0.4, 1.3, 2.0}
 };
 
 out VS_OUT {
@@ -31,6 +33,7 @@ out VS_OUT {
 	vec3 normal;
 	vec3 vertex;
 	vec2 textureCoord;
+	float distanceToIsland;
 } vs_out;
 
 float alpha(vec2 position, vec2 direction, float frequency, float phase) {
@@ -79,20 +82,34 @@ vec3 G(vec2 position, vec2 direction,
 
 void main()
 {
-	vec3 waveVertex = vec3(0.0, 0.0, 0.0);
-	for(uint wave = 0; wave < NUM_WAVES; wave++) {
-		waveVertex +=
-			G(
-				vertex.xz, staticWaves[wave].direction, staticWaves[wave].amplitude,
-				staticWaves[wave].frequency, staticWaves[wave].phase, staticWaves[wave].sharpness
-			);
-	}
+	vec2 islandToVertex = (vertex_model_to_world * vec4(vertex, 1.0)).xz - island.xy;
+	float distanceToIsland = max(sqrt(dot(islandToVertex, islandToVertex)) - island.z, 0.0);
+	vs_out.distanceToIsland = distanceToIsland;
 
-	waveVertex +=
-		G(
-			vertex.xz, mainWave.direction, mainWave.amplitude,
-			mainWave.frequency, mainWave.phase, mainWave.sharpness
-		);
+	vec3 waveVertex = vec3(0.0, 0.0, 0.0);
+
+	if(distanceToIsland > 0.0) {
+    float dampen = distanceToIsland < 10.0 ?
+		  pow((distanceToIsland / 10.0), 2) :
+			1.0;
+
+    for(uint wave = 0; wave < NUM_WAVES; wave++) {
+    	waveVertex +=
+    		G(
+    			vertex.xz, staticWaves[wave].direction, staticWaves[wave].amplitude * dampen,
+    			staticWaves[wave].frequency, staticWaves[wave].phase, staticWaves[wave].sharpness
+    		);
+    }
+
+    waveVertex +=
+    	G(
+    		vertex.xz, mainWave.direction, mainWave.amplitude * dampen,
+    		mainWave.frequency, mainWave.phase, mainWave.sharpness
+    	);
+	}
+	else {
+		waveVertex += vec3(0.0, 10.0, 0.0);
+	}
 
 	vs_out.tangent = normalize(vec3(1.0, waveVertex.x, 0.0));
 	vs_out.binormal = normalize(vec3(0.0, waveVertex.z, 1.0));

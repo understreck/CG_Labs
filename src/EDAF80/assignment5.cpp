@@ -43,7 +43,7 @@ edaf80::Assignment5::~Assignment5() { bonobo::deinit(); }
 
 void edaf80::Assignment5::run() {
   // Set up the camera
-  mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 0.0f, 6.0f));
+  mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 30.0f, 0.0f));
   mCamera.mMouseSensitivity = glm::vec2(0.003f);
   mCamera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
 
@@ -73,16 +73,18 @@ void edaf80::Assignment5::run() {
 
   auto elapsedTimeSeconds = 0.0f;
 
+  auto island = glm::vec3{0.0, 0.0, 10.0f};
+
   struct Wave {
     glm::vec2 direction;
     float amplitude;
     float frequency;
     float phase;
     float sharpness;
-  } mainWave{{-1.0, 0.0}, 1.0, 0.2, 0.5, 2.0};
+  } mainWave{{-1.0, 0.0}, 10.0, 0.2, 0.5, 2.0};
 
-  auto terrainProgram = [&elapsedTimeSeconds, &camera = mCamera,
-                         &mainWave](GLuint program) {
+  auto terrainProgram = [&elapsedTimeSeconds, &camera = mCamera, &mainWave,
+                         &island](GLuint program) {
     glUniform1f(glGetUniformLocation(program, "elapsedTimeSeconds"),
                 elapsedTimeSeconds);
     glUniform3fv(glGetUniformLocation(program, "cameraPosition"), 1,
@@ -98,6 +100,9 @@ void edaf80::Assignment5::run() {
                 mainWave.phase);
     glUniform1f(glGetUniformLocation(program, "mainWave.sharpness"),
                 mainWave.sharpness);
+
+    glUniform3fv(glGetUniformLocation(program, "island"), 1,
+                 glm::value_ptr(island));
   };
 
   auto terrainNoiseTexture = bonobo::loadTexture2D("res/textures/waves.png");
@@ -106,6 +111,7 @@ void edaf80::Assignment5::run() {
       parametric_shapes::createQuad(100.0, 100.0, 1000, 1000);
   auto terrainNode = Node{};
   terrainNode.set_geometry(terrainGeometry);
+  terrainNode.get_transform().Translate(glm::vec3{-50.0f, 0.0, -50.0f});
   terrainNode.add_texture("normalTexture", terrainNoiseTexture, GL_TEXTURE_2D);
   terrainNode.set_program(&wavesShader, terrainProgram);
 

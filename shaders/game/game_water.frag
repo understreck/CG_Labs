@@ -15,12 +15,14 @@ in VS_OUT {
 	vec3 normal;
 	vec3 vertex;
 	vec2 textureCoord;
+	float distanceToIsland;
 } fs_in;
 
 out vec4 frag_colour;
 
 const vec4 colourDeep = vec4(0.0, 0.0, 0.1, 1.0);
 const vec4 colourShallow = vec4(0.0, 0.5, 0.5, 1.0);
+const vec4 islandColour = vec4(0.0, 0.7, 0.0, 1.0);
 
 const vec2 normalTextureScale = vec2(8, 4);
 float normalTime = mod(elapsedTimeSeconds, 100.0);
@@ -53,5 +55,7 @@ void main()
 
 	vec4 waterColour = mix(colourDeep, colourShallow, facing);
 
-	frag_colour = waterColour;
+	frag_colour = fs_in.distanceToIsland < 5.0 ?
+		waterColour * (fs_in.distanceToIsland / 5.0) + islandColour * (1 - fs_in.distanceToIsland / 5.0):
+		waterColour;
 }
