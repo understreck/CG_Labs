@@ -10,6 +10,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
+#include <random>
 #include <tinyfiledialogs.h>
 
 #include <clocale>
@@ -70,6 +71,26 @@ void edaf80::Assignment5::run() {
     LogError("Failed to load fallback shader");
     return;
   }
+
+  auto wirlPoolBuffer = 0u;
+  glGenBuffers(1, &wirlPoolBuffer);
+  glBindBuffer(GL_UNIFORM_BUFFER, wirlPoolBuffer);
+  glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2) * 10, 0, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, wirlPoolBuffer);
+
+  auto whirlPools = std::array<glm::vec2, 10>{};
+  auto mt = std::mt19937{std::random_device{}()};
+  auto distribution = std::uniform_int_distribution{-50, 50};
+
+  for (auto &&whirlPool : whirlPools) {
+    whirlPool = {distribution(mt), distribution(mt)};
+  }
+
+  glBindBuffer(GL_UNIFORM_BUFFER, wirlPoolBuffer);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2) * 10,
+                  whirlPools.data());
 
   auto elapsedTimeSeconds = 0.0f;
 
