@@ -13,6 +13,7 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_exponential.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -78,25 +79,39 @@ void edaf80::Assignment5::run() {
     return;
   }
 
+  GLuint boatShader = 0u;
+  program_manager.CreateAndRegisterProgram(
+      "Boat",
+      {{ShaderType::vertex, "game/boat.vert"},
+       {ShaderType::fragment, "game/boat.frag"}},
+      boatShader);
+  if (boatShader == 0u) {
+    LogError("Failed to load fallback shader");
+    return;
+  }
+
+#define NUM_POOLS 5
+
   auto wirlPoolBuffer = 0u;
   glGenBuffers(1, &wirlPoolBuffer);
   glBindBuffer(GL_UNIFORM_BUFFER, wirlPoolBuffer);
-  glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2) * 10, 0, GL_DYNAMIC_DRAW);
+  glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec2) * NUM_POOLS, 0,
+               GL_DYNAMIC_DRAW);
   glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, wirlPoolBuffer);
-
-  auto whirlPools = std::array<glm::vec2, 10>{};
+  auto whirlPools = std::array<glm::vec2, NUM_POOLS>{};
   auto mt = std::mt19937{std::random_device{}()};
-  auto distribution = std::uniform_int_distribution{-50, 50};
+  auto distribution = std::uniform_int_distribution{0, 100};
 
   for (auto &&whirlPool : whirlPools) {
     whirlPool = {distribution(mt), distribution(mt)};
   }
 
   glBindBuffer(GL_UNIFORM_BUFFER, wirlPoolBuffer);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2) * 10,
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2) * NUM_POOLS,
                   whirlPools.data());
+  glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
   auto elapsedTimeSeconds = 0.0f;
 
@@ -106,12 +121,12 @@ void edaf80::Assignment5::run() {
     float frequency;
     float phase;
     float sharpness;
-  } mainWave{{-1.0, 0.0}, 0.0, 0.2, 0.5, 2.0};
+  } mainWave{{-1.0, 0.0}, 3.0, 0.2, 0.5, 2.0};
 
-  auto boatPos = glm::vec3{};
+  auto boatPos = glm::vec3{0.f, 0.0f, 0.f};
   auto boat =
-      Boat{&fallback_shader, [&elapsedTimeSeconds, &camera = mCamera, &mainWave,
-                              &boatPos](GLuint program) {
+      Boat{&boatShader, [&elapsedTimeSeconds, &camera = mCamera, &mainWave,
+                         &boatPos](GLuint program) {
              glUniform1f(glGetUniformLocation(program, "elapsedTimeSeconds"),
                          elapsedTimeSeconds);
              glUniform3fv(glGetUniformLocation(program, "cameraPosition"), 1,
@@ -127,6 +142,9 @@ void edaf80::Assignment5::run() {
                          mainWave.phase);
              glUniform1f(glGetUniformLocation(program, "mainWave.sharpness"),
                          mainWave.sharpness);
+
+             glUniform3fv(glGetUniformLocation(program, "boatPosition"), 1,
+                          glm::value_ptr(boatPos));
            }};
 
   auto terrainProgram = [&elapsedTimeSeconds, &camera = mCamera, &mainWave,
@@ -146,6 +164,9 @@ void edaf80::Assignment5::run() {
                 mainWave.phase);
     glUniform1f(glGetUniformLocation(program, "mainWave.sharpness"),
                 mainWave.sharpness);
+
+    glUniform3fv(glGetUniformLocation(program, "boatPosition"), 1,
+                 glm::value_ptr(boatPos));
   };
 
   auto terrainNoiseTexture = bonobo::loadTexture2D("res/textures/waves.png");
@@ -171,9 +192,15 @@ void edaf80::Assignment5::run() {
   float basis_thickness_scale = 1.0f;
   float basis_length_scale = 1.0f;
 
+  bool controlBoat = true;
+
   mCamera.mWorld.RotateX(-glm::half_pi<float>());
 
+  auto gameOver = false;
   while (!glfwWindowShouldClose(window)) {
+    if (gameOver) {
+      controlBoat = false;
+    }
     auto const nowTime = std::chrono::high_resolution_clock::now();
     auto const deltaTimeUs =
         std::chrono::duration_cast<std::chrono::microseconds>(nowTime -
@@ -188,15 +215,48 @@ void edaf80::Assignment5::run() {
     glfwPollEvents();
     inputHandler.Advance();
 
-    boatPos += boat.update(deltaTimeS, inputHandler);
+    if (controlBoat) {
+      boatPos += boat.update(deltaTimeS, inputHandler);
+    } else {
+      mCamera.Update(deltaTimeUs, inputHandler);
+    }
+
+    for (auto &&whirlPool : whirlPools) {
+      auto boatToWhirlpool =
+          whirlPool - glm::vec2{boatPos.x + 50, boatPos.z + 50};
+      if (glm::dot(boatToWhirlpool, boatToWhirlpool) > 75 * 75) {
+        whirlPool = {distribution(mt) + boatPos.x,
+                     distribution(mt) + boatPos.z};
+        boatToWhirlpool = whirlPool - glm::vec2{boatPos.x + 50, boatPos.z + 50};
+      }
+
+      auto distance = glm::sqrt(glm::dot(boatToWhirlpool, boatToWhirlpool));
+      if (distance < 5.0f) {
+        boatPos += glm::vec3(boatToWhirlpool.x, 0.0, boatToWhirlpool.y) *
+                   (1.0f / std::pow(distance / 5.f, 2.f)) * deltaTimeS;
+
+        boatToWhirlpool = whirlPool - glm::vec2{boatPos.x + 50, boatPos.z + 50};
+        distance = glm::sqrt(glm::dot(boatToWhirlpool, boatToWhirlpool));
+        if (distance < 0.1) {
+          gameOver = true;
+        }
+      }
+    }
+
+    glBindBuffer(GL_UNIFORM_BUFFER, wirlPoolBuffer);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec2) * NUM_POOLS,
+                    whirlPools.data());
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     if (inputHandler.GetKeycodeState(GLFW_KEY_R) & JUST_PRESSED) {
       shader_reload_failed = !program_manager.ReloadAllPrograms();
       if (shader_reload_failed)
         tinyfd_notifyPopup("Shader Program Reload Error",
-                           "An error occurred while reloading shader programs; "
+                           "An error occurred while reloading shader "
+                           "programs; "
                            "see the logs for details.\n"
-                           "Rendering is suspended until the issue is solved. "
+                           "Rendering is suspended until the issue is "
+                           "solved. "
                            "Once fixed, just reload the shaders again.",
                            "error");
     }
@@ -231,8 +291,9 @@ void edaf80::Assignment5::run() {
       // Todo: Render all your geometry here.
       //
       terrainNode.render(mCamera.GetWorldToClipMatrix());
-      boat.render(mCamera.GetWorldToClipMatrix(),
-                  glm::translate(glm::mat4{1.0}, boatPos));
+      if (!gameOver) {
+        boat.render(mCamera.GetWorldToClipMatrix());
+      }
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -243,12 +304,8 @@ void edaf80::Assignment5::run() {
     //
     bool const opened =
         ImGui::Begin("Scene Controls", nullptr, ImGuiWindowFlags_None);
-    if (opened) {
-      ImGui::Checkbox("Show basis", &show_basis);
-      ImGui::SliderFloat("Basis thickness scale", &basis_thickness_scale, 0.0f,
-                         100.0f);
-      ImGui::SliderFloat("Basis length scale", &basis_length_scale, 0.0f,
-                         100.0f);
+    if (opened && !gameOver) {
+      ImGui::Checkbox("Control boat", &controlBoat);
     }
     ImGui::End();
 

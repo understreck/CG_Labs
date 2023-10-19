@@ -14,7 +14,7 @@ class Boat {
   std::array<Node, 4> m_sail{};
 
   float m_heading{};
-  float const m_speed = 1.0f;
+  float const m_speed = 4.0f;
 
 public:
   inline Boat(GLuint const *const shaderID,
@@ -31,7 +31,6 @@ public:
 
     for (auto &&boatPart : m_boat) {
       boatPart.set_program(shaderID, set_uniforms);
-      boatPart.get_transform().SetScale(4.0);
     }
 
     m_sail[0].set_geometry(m_meshes[3]);
@@ -49,7 +48,6 @@ public:
 
     for (auto &&sailPart : m_sail) {
       sailPart.set_program(shaderID, set_uniforms);
-      sailPart.get_transform().SetScale(4.0);
     }
   }
 
@@ -72,16 +70,16 @@ public:
     return movement;
   }
 
-  auto inline render(glm::mat4 const &world, glm::mat4 const &mod) -> void {
-    auto rotation =
-        glm::rotate(glm::mat4{1.0f}, m_heading, glm::vec3{0.0f, 1.0f, 0.0f});
-
+  auto inline render(glm::mat4 const &world, glm::mat4 const &mod = {})
+      -> void {
     for (auto &&node : m_boat) {
-      node.render(world, mod * rotation);
+      node.get_transform().SetRotate(m_heading, glm::vec3{0.0f, 1.0f, 0.0f});
+      node.render(world);
     }
 
     for (auto &&node : m_sail) {
-      node.render(world, mod * rotation);
+      node.get_transform().SetRotate(m_heading, glm::vec3{0.0f, 1.0f, 0.0f});
+      node.render(world);
     }
   }
 };

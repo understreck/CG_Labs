@@ -6,13 +6,15 @@ uniform mat4 normal_model_to_world;
 uniform sampler2D normalTexture;
 
 uniform vec3 cameraPosition;
+uniform vec3 boatPosition;
 
 uniform float elapsedTimeSeconds;
 
+#define NUM_WHIRLPOOLS 5
 #define M_PI 3.1415926535897932384626433832795
 
 layout(std430, binding = 2) buffer WhirlPools {
-	vec2 whirlPools[10];
+	vec2 whirlPools[NUM_WHIRLPOOLS];
 } whirlPools;
 
 in VS_OUT {
@@ -28,9 +30,8 @@ in VS_OUT {
 
 out vec4 frag_colour;
 
-const vec4 colourDeep = vec4(0.0, 0.0, 0.1, 1.0);
-const vec4 colourShallow = vec4(0.0, 0.5, 0.5, 1.0);
-const vec4 islandColour = vec4(0.0, 0.7, 0.0, 1.0);
+const vec4 colourDeep = vec4(0.0, 0.2, 0.3, 1.0);
+const vec4 colourShallow = vec4(0.0, 0.7, 0.7, 1.0);
 
 const vec2 normalTextureScale = vec2(8, 4);
 float normalTime = mod(elapsedTimeSeconds, 100.0);
@@ -60,9 +61,9 @@ void main()
 		normalize(fs_in.tangent), normalize(fs_in.normal), normalize(fs_in.binormal)
 	};
 
-	normal = TNB * normalize(normal);
+	//normal = TNB * normalize(normal);
 
-	normal = normal;
+	normal = TNB[1];
 
 	vec3 fragmentToCamera = normalize(cameraPosition - fs_in.vertex);
 	float facing = 1.0 - max(dot(fragmentToCamera, normal), 0.0);
@@ -71,7 +72,7 @@ void main()
 
 	float wp = whirlpool_calc();
 
-	if(fs_in.whirlPoolDistance < 10.0) {
+	if(fs_in.whirlPoolDistance < 5.0) {
 		waterColour = vec4(vec3(1.0, 1.0, 1.0) * cos(M_PI * fs_in.whirlPoolDistance + acos(wp) * 4 + M_PI * elapsedTimeSeconds), 1.0);
 	}
 

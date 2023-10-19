@@ -1,6 +1,9 @@
 #version 430
+
 layout (location = 0) in vec3 vertex;
-layout (location = 2) in vec2 textureCoord;
+layout (location = 1) in vec3 normal;
+layout (location = 3) in vec3 tangent;
+layout (location = 4) in vec3 binormal;
 
 #define NUM_WAVES 2
 #define NUM_WHIRLPOOLS 5
@@ -8,7 +11,6 @@ layout (location = 2) in vec2 textureCoord;
 
 uniform mat4 vertex_model_to_world;
 uniform mat4 vertex_world_to_clip;
-
 
 uniform float elapsedTimeSeconds;
 uniform vec3 boatPosition;
@@ -42,6 +44,20 @@ out VS_OUT {
 	vec2 whirlPoolCoord;
 	float whirlPoolDistance;
 } vs_out;
+
+vec3 closest_whirlpool(vec2 position) {
+	vec2 v = position - whirlPools.whirlPools[0];
+	float closestDistance = length(v);
+	for(int i = 1; i < NUM_WHIRLPOOLS; i++) {
+		float distance = distance(position, whirlPools.whirlPools[i]);
+		if(distance < closestDistance) {
+			v = position - whirlPools.whirlPools[i];
+			closestDistance = length(v);
+		}
+	}
+
+	return vec3(v, closestDistance);
+}
 
 float alpha(vec2 position, vec2 direction, float frequency, float phase) {
 	return
@@ -87,20 +103,6 @@ vec3 G(vec2 position, vec2 direction,
 	);
 }
 
-vec3 closest_whirlpool(vec2 position) {
-	vec2 v = position - whirlPools.whirlPools[0];
-	float closestDistance = length(v);
-	for(int i = 1; i < NUM_WHIRLPOOLS; i++) {
-		float distance = distance(position, whirlPools.whirlPools[i]);
-		if(distance < closestDistance) {
-			v = position - whirlPools.whirlPools[i];
-			closestDistance = length(v);
-		}
-	}
-
-	return vec3(v, closestDistance);
-}
-
 void main()
 {
 	vec3 waveVertex = vec3(0.0, 0.0, 0.0);
@@ -108,14 +110,13 @@ void main()
   for(uint wave = 0; wave < NUM_WAVES; wave++) {
   	waveVertex +=
   		G(
-  			vertex.xz + boatPosition.xz, staticWaves[wave].direction, staticWaves[wave].amplitude,
+  			boatPosition.xz + boatPosition.xz, staticWaves[wave].direction, staticWaves[wave].amplitude,
   			staticWaves[wave].frequency, staticWaves[wave].phase, staticWaves[wave].sharpness
   		);
   }
 
   waveVertex +=
-  	G(
-  		vertex.xz + boatPosition.xz, mainWave.direction, mainWave.amplitude,
+  	G(boatPosition.xz + vec2(50, 50), mainWave.direction, mainWave.amplitude,
   		mainWave.frequency, mainWave.phase, mainWave.sharpness
   	);
 
@@ -123,24 +124,19 @@ void main()
 	vs_out.binormal = normalize(vec3(0.0, waveVertex.z, 1.0));
 	vs_out.normal = normalize(vec3(-waveVertex.x, 1.0, -waveVertex.z));
 
-	vec3 closestWhirlpool = closest_whirlpool(vertex.xz + boatPosition.xz);
+	vec3 closestWhirlpool = closest_whirlpool(boatPosition.xz + vec2(50, 50));
 	vs_out.whirlPoolCoord = closestWhirlpool.xy;
 	vs_out.whirlPoolDistance = closestWhirlpool.z;
 
 	if(vs_out.whirlPoolDistance < 5.0) {
-		vs_out.vertex = (vertex_model_to_world * vec4(vertex.x, (1 - 1 / pow(vs_out.whirlPoolDistance / 5.0, 2.0)) / 2, vertex.z, 1.0)).xyz;
+		vs_out.vertex = (vertex_model_to_world * vec4(vertex.x, vertex.y + (1 - 1 / pow(vs_out.whirlPoolDistance / 5.0, 2.0)) / 2, vertex.z, 0.0)).xyz;
 	}
 	else if(vs_out.whirlPoolDistance < 15.0) {
 		vs_out.vertex = (vertex_model_to_world * vec4(vertex + mix(waveVertex, vec3(0.0, 0.0, 0.0), 1 - (vs_out.whirlPoolDistance - 5.0) / 10.0), 1.0)).xyz;
 	}
 	else {
-		vs_out.vertex = vec3(vertex_model_to_world * vec4(vertex + waveVertex, 1.0));
+		vs_out.vertex = (vertex_model_to_world * vec4(vertex, 0.0)).xyz + waveVertex;
 	}
-
-	vs_out.textureCoord = textureCoord;
 
 	gl_Position = vertex_world_to_clip * vec4(vs_out.vertex, 1.0);
 }
-
-
-
